@@ -1,0 +1,125 @@
+@page "/rezepte"
+@inject RecipeService RecipeService
+@inject CategoryService CategoryService
+@inject NavigationManager Nav
+
+<PageTitle>Rezepte – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Rezeptbuch</span>
+        <h1>Rezepte</h1>
+        <p class="lead">Alle Rezepte an einem Ort – erfassen, importieren und für Menüs verwenden.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-secondary" href="/rezepte/import">⬇️ Importieren</a>
+        <a class="btn btn-primary" href="/rezepte/neu">+ Neues Rezept</a>
+    </div>
+</div>
+
+<div class="row" style="margin-bottom:1.25rem;">
+    <input class="input" style="max-width:320px;" placeholder="Rezept suchen…" value="@_search" @oninput="OnSearchChanged" />
+    <div class="row" style="gap:0.4rem;">
+        <button class="chip chip-btn @(_categoryId is null ? "active" : "")" @onclick="() => FilterByCategory(null)">Alle</button>
+        @foreach (var cat in _categories)
+        {
+            <button class="chip chip-btn @(_categoryId == cat.Id ? "active" : "")" @onclick="() => FilterByCategory(cat.Id)">
+                @cat.Icon @cat.Name
+            </button>
+        }
+    </div>
+</div>
+
+@if (_recipes is null)
+{
+    <span class="spinner"></span>
+}
+else if (_recipes.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">🍽️</div>
+        <h3>Noch keine Rezepte</h3>
+        <p>Lege dein erstes Rezept an oder importiere eines von einer Webseite.</p>
+        <div class="row" style="justify-content:center; margin-top:1rem;">
+            <a class="btn btn-secondary" href="/rezepte/import">Importieren</a>
+            <a class="btn btn-primary" href="/rezepte/neu">Neues Rezept</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="grid-cards">
+        @foreach (var recipe in _recipes)
+        {
+            <a class="card recipe-card" href="@($"/rezepte/{recipe.Id}")">
+                <div class="recipe-card-media">
+                    @if (!string.IsNullOrWhiteSpace(recipe.ImageUrl))
+                    {
+                        <img src="@recipe.ImageUrl" alt="@recipe.Name" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="placeholder">@(recipe.Category?.Icon ?? "🍽️")</div>
+                    }
+                    <div class="media-veil"></div>
+                </div>
+                <div class="recipe-card-body">
+                    @if (recipe.Category is not null)
+                    {
+                        <span class="chip" style="background:color-mix(in srgb, @recipe.Category.Color 16%, transparent); color:@recipe.Category.Color;">
+                            <span class="chip-dot"></span>@recipe.Category.Name
+                        </span>
+                    }
+                    <div class="recipe-card-title">@recipe.Name</div>
+                    <div class="recipe-card-meta">
+                        <span>⏱ @recipe.TotalTimeMinutes min</span>
+                        <span class="dot"></span>
+                        <span>👥 @recipe.Servings Portionen</span>
+                    </div>
+                </div>
+            </a>
+        }
+    </div>
+}
+
+<a href="/rezepte/neu" class="fab fab-mobile" title="Neues Rezept">+</a>
+
+@code {
+    private List<Recipe>? _recipes;
+    private List<RecipeCategory> _categories = new();
+    private string _search = "";
+    private int? _categoryId;
+    private System.Threading.CancellationTokenSource? _debounce;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync();
+        await LoadRecipes();
+    }
+
+    private async Task LoadRecipes()
+    {
+        _recipes = await RecipeService.GetAllAsync(_search, _categoryId);
+    }
+
+    private async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new System.Threading.CancellationTokenSource();
+        var token = _debounce.Token;
+        try
+        {
+            await Task.Delay(300, token);
+            await LoadRecipes();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task FilterByCategory(int? categoryId)
+    {
+        _categoryId = categoryId;
+        await LoadRecipes();
+    }
+}

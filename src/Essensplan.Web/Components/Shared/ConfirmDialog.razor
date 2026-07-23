@@ -1,0 +1,27 @@
+@if (IsOpen)
+{
+    <div class="modal-backdrop" @onclick="Cancel">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="mb-0">@Title</h3>
+            </div>
+            <p class="muted">@Message</p>
+            <div class="row" style="justify-content:flex-end; margin-top: 1.25rem;">
+                <button class="btn btn-ghost" @onclick="Cancel">Abbrechen</button>
+                <button class="btn btn-danger" @onclick="Confirm">@ConfirmLabel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Wirklich löschen?";
+    [Parameter] public string Message { get; set; } = "Diese Aktion kann nicht rückgängig gemacht werden.";
+    [Parameter] public string ConfirmLabel { get; set; } = "Löschen";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task Confirm() => await OnConfirm.InvokeAsync();
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+}

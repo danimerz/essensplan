@@ -1,0 +1,196 @@
+@page "/menus/neu"
+@page "/menus/{Id:int}/bearbeiten"
+@inject MenuService MenuService
+@inject RecipeService RecipeService
+@inject NavigationManager Nav
+
+<PageTitle>@(IsEditMode ? "Menü bearbeiten" : "Neues Menü") – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Planung</span>
+        <h1>@(IsEditMode ? "Menü bearbeiten" : "Neues Menü")</h1>
+    </div>
+    @if (IsEditMode)
+    {
+        <div class="page-actions">
+            <button class="btn btn-danger btn-sm" @onclick="() => _confirmDelete = true">🗑️ Löschen</button>
+        </div>
+    }
+</div>
+
+<div class="container-narrow">
+    <div class="card card-pad" style="margin-bottom:1.25rem;">
+        <div class="field">
+            <label>Name</label>
+            <input class="input" @bind="_name" @bind:event="oninput" placeholder="z. B. Sonntagsbraten" />
+        </div>
+        <div class="field">
+            <label>Beschreibung</label>
+            <input class="input" @bind="_description" @bind:event="oninput" placeholder="Optional" />
+        </div>
+        <div class="field mb-0">
+            <label>Mahlzeit</label>
+            <div class="row">
+                @foreach (var mt in Enum.GetValues<MealType>())
+                {
+                    <button type="button" class="chip chip-btn @(_mealType == mt ? "active" : "")" @onclick="() => _mealType = mt">
+                        @mt.ToIcon() @mt.ToGermanLabel()
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:1.25rem;">
+        <h3>Rezepte im Menü</h3>
+        @if (_selectedRecipes.Count == 0)
+        {
+            <p class="muted text-sm">Noch keine Rezepte ausgewählt.</p>
+        }
+        else
+        {
+            <ul class="stack" style="gap:0.4rem; margin-bottom:1rem;">
+                @foreach (var r in _selectedRecipes)
+                {
+                    <li class="row-between" style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.5rem 0.75rem;">
+                        <span>@r.Name</span>
+                        <button type="button" class="btn btn-ghost btn-icon btn-sm" @onclick="() => Remove(r)">✕</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <input class="input" placeholder="Rezept suchen und hinzufügen…" value="@_search" @oninput="OnSearch" />
+
+        @if (_searchResults.Count > 0)
+        {
+            <div class="stack" style="gap:0.3rem; margin-top:0.6rem; max-height:220px; overflow-y:auto;">
+                @foreach (var r in _searchResults)
+                {
+                    <div class="row-between chip-btn" style="cursor:pointer; padding:0.5rem 0.75rem; border-radius:var(--radius-sm);" @onclick="() => Add(r)">
+                        <span>@(r.Category?.Icon) @r.Name</span>
+                        <span class="muted text-sm">+ hinzufügen</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    <div class="row" style="justify-content:flex-end;">
+        <a class="btn btn-ghost" href="/menus">Abbrechen</a>
+        <button class="btn btn-primary" @onclick="Save">@(IsEditMode ? "Speichern" : "Menü anlegen")</button>
+    </div>
+</div>
+
+<ConfirmDialog IsOpen="_confirmDelete"
+               Title="Menü löschen?"
+               Message="@($"„{_name}“ wird gelöscht und aus dem Wochenplan entfernt.")"
+               OnCancel="() => _confirmDelete = false"
+               OnConfirm="DeleteMenu" />
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private bool IsEditMode => Id.HasValue;
+
+    private string _name = "";
+    private string _description = "";
+    private MealType _mealType = MealType.Abendessen;
+    private List<Recipe> _selectedRecipes = new();
+    private string _search = "";
+    private List<Recipe> _searchResults = new();
+    private string? _error;
+    private bool _confirmDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEditMode)
+        {
+            var menu = await MenuService.GetByIdAsync(Id!.Value);
+            if (menu is null)
+            {
+                Nav.NavigateTo("/menus");
+                return;
+            }
+
+            _name = menu.Name;
+            _description = menu.Description ?? "";
+            _mealType = menu.MealType;
+            _selectedRecipes = menu.MenuRecipes
+                .OrderBy(mr => mr.SortOrder)
+                .Where(mr => mr.Recipe is not null)
+                .Select(mr => mr.Recipe!)
+                .ToList();
+        }
+    }
+
+    private async Task OnSearch(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(_search))
+        {
+            _searchResults = new();
+            return;
+        }
+
+        var results = await RecipeService.GetAllAsync(_search);
+        _searchResults = results.Where(r => _selectedRecipes.All(s => s.Id != r.Id)).Take(8).ToList();
+    }
+
+    private void Add(Recipe r)
+    {
+        _selectedRecipes.Add(r);
+        _searchResults.Remove(r);
+    }
+
+    private void Remove(Recipe r) => _selectedRecipes.Remove(r);
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Bitte einen Namen angeben.";
+            return;
+        }
+        if (_selectedRecipes.Count == 0)
+        {
+            _error = "Bitte mindestens ein Rezept auswählen.";
+            return;
+        }
+
+        var menu = new Menu
+        {
+            Id = Id ?? 0,
+            Name = _name.Trim(),
+            Description = string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+            MealType = _mealType
+        };
+
+        var recipeIds = _selectedRecipes.Select(r => r.Id).ToList();
+
+        if (IsEditMode)
+        {
+            await MenuService.UpdateAsync(menu, recipeIds);
+        }
+        else
+        {
+            await MenuService.CreateAsync(menu, recipeIds);
+        }
+
+        Nav.NavigateTo("/menus");
+    }
+
+    private async Task DeleteMenu()
+    {
+        if (Id.HasValue)
+        {
+            await MenuService.DeleteAsync(Id.Value);
+        }
+        Nav.NavigateTo("/menus");
+    }
+}

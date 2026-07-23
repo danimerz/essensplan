@@ -1,0 +1,42 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">🍲</div>
+            <div class="brand-text">
+                <strong>Essensplan</strong>
+                <span>Menüs &amp; Wochenplan</span>
+            </div>
+        </div>
+
+        <NavMenu />
+
+        <div class="sidebar-footer">
+            <span class="muted text-sm">Design</span>
+            <ThemeToggle />
+        </div>
+    </aside>
+
+    <div>
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark">🍲</div>
+                <strong>Essensplan</strong>
+            </div>
+            <ThemeToggle />
+        </header>
+
+        <main class="app-main">
+            @Body
+        </main>
+    </div>
+
+    <BottomNav />
+</div>
+
+<div id="blazor-error-ui">
+    Es ist ein unerwarteter Fehler aufgetreten.
+    <a href="" class="reload">Neu laden</a>
+    <a class="dismiss">🗙</a>
+</div>

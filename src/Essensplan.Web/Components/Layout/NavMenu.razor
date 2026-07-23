@@ -1,0 +1,20 @@
+@{
+    var items = new (string Href, string Icon, string Label, bool ExactMatch)[]
+    {
+        ("", "🏠", "Übersicht", true),
+        ("wochenplan", "📅", "Wochenplan", false),
+        ("rezepte", "📖", "Rezepte", false),
+        ("menus", "🍽️", "Menüs", false),
+        ("kategorien", "🏷️", "Kategorien", false),
+    };
+}
+
+<nav class="nav-list">
+    @foreach (var item in items)
+    {
+        <NavLink class="nav-item" href="@item.Href" Match="@(item.ExactMatch ? NavLinkMatch.All : NavLinkMatch.Prefix)">
+            <span class="nav-icon">@item.Icon</span>
+            <span>@item.Label</span>
+        </NavLink>
+    }
+</nav>
