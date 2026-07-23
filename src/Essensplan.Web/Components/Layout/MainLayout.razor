@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject CurrentUserService CurrentUser
 
 <div class="app-shell">
     <aside class="sidebar">
@@ -13,8 +14,11 @@
         <NavMenu />
 
         <div class="sidebar-footer">
-            <span class="muted text-sm">Design</span>
             <ThemeToggle />
+            <div class="user-chip">
+                <span class="muted text-sm">@_email</span>
+                <a class="btn btn-ghost btn-sm" href="/abmelden">Abmelden</a>
+            </div>
         </div>
     </aside>
 
@@ -24,7 +28,10 @@
                 <div class="brand-mark">🍲</div>
                 <strong>Essensplan</strong>
             </div>
-            <ThemeToggle />
+            <div class="row" style="gap:0.5rem;">
+                <ThemeToggle />
+                <a class="btn btn-ghost btn-sm" href="/abmelden">↩</a>
+            </div>
         </header>
 
         <main class="app-main">
@@ -40,3 +47,12 @@
     <a href="" class="reload">Neu laden</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string? _email;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _email = await CurrentUser.GetEmailAsync();
+    }
+}

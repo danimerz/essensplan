@@ -2,6 +2,7 @@
 @page "/menus/{Id:int}/bearbeiten"
 @inject MenuService MenuService
 @inject RecipeService RecipeService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Nav
 
 <PageTitle>@(IsEditMode ? "Menü bearbeiten" : "Neues Menü") – Essensplan</PageTitle>
@@ -98,7 +99,7 @@
 
 <ConfirmDialog IsOpen="_confirmDelete"
                Title="Menü löschen?"
-               Message="@($"„{_name}“ wird gelöscht und aus dem Wochenplan entfernt.")"
+               Message="@_deleteMessage"
                OnCancel="() => _confirmDelete = false"
                OnConfirm="DeleteMenu" />
 
@@ -114,12 +115,16 @@
     private List<Recipe> _searchResults = new();
     private string? _error;
     private bool _confirmDelete;
+    private int _householdId;
+    private string _deleteMessage => string.Concat(_name, " wird gelöscht und aus dem Wochenplan entfernt.");
 
     protected override async Task OnInitializedAsync()
     {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
+
         if (IsEditMode)
         {
-            var menu = await MenuService.GetByIdAsync(Id!.Value);
+            var menu = await MenuService.GetByIdAsync(Id!.Value, _householdId);
             if (menu is null)
             {
                 Nav.NavigateTo("/menus");
@@ -146,7 +151,7 @@
             return;
         }
 
-        var results = await RecipeService.GetAllAsync(_search);
+        var results = await RecipeService.GetAllAsync(_householdId, _search);
         _searchResults = results.Where(r => _selectedRecipes.All(s => s.Id != r.Id)).Take(8).ToList();
     }
 
@@ -167,22 +172,9 @@
 
     private async Task Save()
     {
-        if (string.IsNullOrWhiteSpace(_name))
-        {
-            _error = "Bitte einen Namen angeben.";
-            return;
-        }
-        if (_selectedRecipes.Count == 0)
-        {
-            _error = "Bitte mindestens ein Rezept auswählen.";
-            return;
-        }
-
-        if (_allowedMealTypes == 0)
-        {
-            _error = "Bitte mindestens eine Mahlzeit auswählen.";
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(_name)) { _error = "Bitte einen Namen angeben."; return; }
+        if (_selectedRecipes.Count == 0) { _error = "Bitte mindestens ein Rezept auswählen."; return; }
+        if (_allowedMealTypes == 0) { _error = "Bitte mindestens eine Mahlzeit auswählen."; return; }
 
         var menu = new Menu
         {
@@ -195,13 +187,9 @@
         var recipeIds = _selectedRecipes.Select(r => r.Id).ToList();
 
         if (IsEditMode)
-        {
-            await MenuService.UpdateAsync(menu, recipeIds);
-        }
+            await MenuService.UpdateAsync(menu, recipeIds, _householdId);
         else
-        {
-            await MenuService.CreateAsync(menu, recipeIds);
-        }
+            await MenuService.CreateAsync(menu, recipeIds, _householdId);
 
         Nav.NavigateTo("/menus");
     }
@@ -209,9 +197,7 @@
     private async Task DeleteMenu()
     {
         if (Id.HasValue)
-        {
-            await MenuService.DeleteAsync(Id.Value);
-        }
+            await MenuService.DeleteAsync(Id.Value, _householdId);
         Nav.NavigateTo("/menus");
     }
 }

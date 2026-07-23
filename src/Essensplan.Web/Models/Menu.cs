@@ -16,6 +16,9 @@ public class Menu
     /// <summary>Bitmask of MealTypeFlags — which meal slots this menu is eligible for.</summary>
     public int AllowedMealTypes { get; set; } = MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
 
+    public int HouseholdId { get; set; }
+    public Household? Household { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<MenuRecipe> MenuRecipes { get; set; } = new();

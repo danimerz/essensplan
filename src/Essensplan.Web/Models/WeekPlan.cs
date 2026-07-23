@@ -8,5 +8,8 @@ public class WeekPlan
     /// <summary>Monday of the planned week (date only).</summary>
     public DateOnly StartDate { get; set; }
 
+    public int HouseholdId { get; set; }
+    public Household? Household { get; set; }
+
     public List<WeekPlanEntry> Entries { get; set; } = new();
 }

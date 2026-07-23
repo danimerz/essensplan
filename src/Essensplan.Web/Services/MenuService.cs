@@ -13,10 +13,11 @@ public class MenuService
         _dbFactory = dbFactory;
     }
 
-    public async Task<List<Menu>> GetAllAsync(MealType? mealType = null)
+    public async Task<List<Menu>> GetAllAsync(int householdId, MealType? mealType = null)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         var query = db.Menus
+            .Where(m => m.HouseholdId == householdId)
             .Include(m => m.MenuRecipes).ThenInclude(mr => mr.Recipe)
             .AsQueryable();
 
@@ -29,17 +30,19 @@ public class MenuService
         return await query.OrderBy(m => m.Name).ToListAsync();
     }
 
-    public async Task<Menu?> GetByIdAsync(int id)
+    public async Task<Menu?> GetByIdAsync(int id, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         return await db.Menus
+            .Where(m => m.Id == id && m.HouseholdId == householdId)
             .Include(m => m.MenuRecipes.OrderBy(mr => mr.SortOrder)).ThenInclude(mr => mr.Recipe)
-            .FirstOrDefaultAsync(m => m.Id == id);
+            .FirstOrDefaultAsync();
     }
 
-    public async Task<Menu> CreateAsync(Menu menu, List<int> recipeIds)
+    public async Task<Menu> CreateAsync(Menu menu, List<int> recipeIds, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
+        menu.HouseholdId = householdId;
         menu.CreatedAt = DateTime.UtcNow;
         if (menu.AllowedMealTypes == 0) menu.AllowedMealTypes = MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
         menu.MenuRecipes = recipeIds.Select((rid, i) => new MenuRecipe { RecipeId = rid, SortOrder = i }).ToList();
@@ -48,10 +51,12 @@ public class MenuService
         return menu;
     }
 
-    public async Task UpdateAsync(Menu menu, List<int> recipeIds)
+    public async Task UpdateAsync(Menu menu, List<int> recipeIds, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var existing = await db.Menus.Include(m => m.MenuRecipes).FirstOrDefaultAsync(m => m.Id == menu.Id);
+        var existing = await db.Menus
+            .Include(m => m.MenuRecipes)
+            .FirstOrDefaultAsync(m => m.Id == menu.Id && m.HouseholdId == householdId);
         if (existing is null) return;
 
         existing.Name = menu.Name;
@@ -64,10 +69,10 @@ public class MenuService
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var menu = await db.Menus.FindAsync(id);
+        var menu = await db.Menus.FirstOrDefaultAsync(m => m.Id == id && m.HouseholdId == householdId);
         if (menu is null) return;
         db.Menus.Remove(menu);
         await db.SaveChangesAsync();

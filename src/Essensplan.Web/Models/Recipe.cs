@@ -29,11 +29,14 @@ public class Recipe
     public int? CategoryId { get; set; }
     public RecipeCategory? Category { get; set; }
 
+    public int HouseholdId { get; set; }
+    public Household? Household { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<RecipeIngredient> Ingredients { get; set; } = new();
-
     public List<MenuRecipe> MenuRecipes { get; set; } = new();
+    public List<RecipeRating> Ratings { get; set; } = new();
 
     public int TotalTimeMinutes => PrepTimeMinutes + CookTimeMinutes;
 }

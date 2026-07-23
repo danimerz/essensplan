@@ -1,7 +1,10 @@
 @page "/wochenplan"
 @page "/wochenplan/{WeekOffset:int}"
+@implements IDisposable
 @inject WeekPlanService WeekPlanService
 @inject MenuService MenuService
+@inject WeekPlanChangeNotifier ChangeNotifier
+@inject CurrentUserService CurrentUser
 
 <PageTitle>Wochenplan – Essensplan</PageTitle>
 
@@ -152,11 +155,29 @@ else
     private bool _fillFruehstueck;
     private bool _fillMittag = true;
     private bool _fillAbend = true;
+    private int _householdId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
+        ChangeNotifier.Subscribe(_householdId, OnExternalChange);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         _monday = WeekPlanService.GetMonday(DateOnly.FromDateTime(DateTime.Today)).AddDays(WeekOffset * 7);
-        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday);
+        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday, _householdId);
+    }
+
+    private async Task OnExternalChange()
+    {
+        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday, _householdId);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ChangeNotifier.Unsubscribe(_householdId, OnExternalChange);
     }
 
     private string FormatWeekRange()
@@ -170,7 +191,7 @@ else
     {
         if (entry is null) return;
         _pickerEntry = entry;
-        _pickerMenus = await MenuService.GetAllAsync(entry.MealType);
+        _pickerMenus = await MenuService.GetAllAsync(_householdId, entry.MealType);
     }
 
     private void ClosePicker() => _pickerEntry = null;
@@ -178,9 +199,9 @@ else
     private async Task AssignMenu(int? menuId)
     {
         if (_pickerEntry is null) return;
-        await WeekPlanService.AssignMenuAsync(_pickerEntry.Id, menuId);
+        await WeekPlanService.AssignMenuAsync(_pickerEntry.Id, menuId, _householdId);
         _pickerEntry = null;
-        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday);
+        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday, _householdId);
     }
 
     private async Task AutoGenerate()
@@ -193,15 +214,15 @@ else
         if (_fillMittag) slots.Add(MealType.Mittagessen);
         if (_fillAbend) slots.Add(MealType.Abendessen);
 
-        await WeekPlanService.AutoGenerateAsync(_week.Id, _overwriteOnGenerate, slots.Count > 0 ? slots : null);
-        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday);
+        await WeekPlanService.AutoGenerateAsync(_week.Id, _overwriteOnGenerate, slots.Count > 0 ? slots : null, _householdId);
+        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday, _householdId);
         _generating = false;
     }
 
     private async Task ClearWeek()
     {
         if (_week is null) return;
-        await WeekPlanService.ClearWeekAsync(_week.Id);
-        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday);
+        await WeekPlanService.ClearWeekAsync(_week.Id, _householdId);
+        _week = await WeekPlanService.GetOrCreateWeekAsync(_monday, _householdId);
     }
 }

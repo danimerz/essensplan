@@ -1,0 +1,176 @@
+@page "/admin/benutzer"
+@inject UserManagementService UserMgmt
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>Benutzerverwaltung – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Administration</span>
+        <h1>Benutzer</h1>
+        <p class="lead">Haushaltsmitglieder verwalten, einladen und Rollen anpassen.</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" @onclick="() => _showInvite = true">+ Einladen</button>
+    </div>
+</div>
+
+@if (!_isAdmin)
+{
+    <div class="alert alert-danger">Du hast keine Berechtigung für diese Seite.</div>
+}
+else
+{
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (_success is not null)
+    {
+        <div class="alert alert-success">@_success</div>
+    }
+
+    @if (_members is null)
+    {
+        <span class="spinner"></span>
+    }
+    else
+    {
+        <div class="stack" style="gap:0.75rem;">
+            @foreach (var m in _members)
+            {
+                <div class="card card-pad row-between" style="flex-wrap:wrap; gap:0.75rem;">
+                    <div>
+                        <div style="font-weight:700;">@(string.IsNullOrWhiteSpace(m.DisplayName) ? m.Email : m.DisplayName)</div>
+                        <div class="text-sm muted">@m.Email</div>
+                        <div class="row" style="gap:0.4rem; margin-top:0.35rem;">
+                            <span class="chip @(m.Role == HouseholdRole.Admin ? "chip-outline" : "")">
+                                @(m.Role == HouseholdRole.Admin ? "Admin" : "Mitglied")
+                            </span>
+                            @if (!m.IsActive)
+                            {
+                                <span class="chip" style="background:var(--danger-soft); color:var(--danger);">Inaktiv</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="row" style="gap:0.4rem;">
+                        <button class="btn btn-ghost btn-sm"
+                                @onclick="() => ToggleRole(m.UserId, m.Role)">
+                            @(m.Role == HouseholdRole.Admin ? "→ Mitglied" : "→ Admin")
+                        </button>
+                        <button class="btn btn-ghost btn-sm"
+                                @onclick="() => ToggleActive(m.UserId, m.IsActive)">
+                            @(m.IsActive ? "Deaktivieren" : "Aktivieren")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@if (_showInvite)
+{
+    <div class="modal-backdrop" @onclick="() => _showInvite = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="mb-0">Benutzer einladen</h3>
+                <button class="btn btn-ghost btn-icon btn-sm" @onclick="() => _showInvite = false">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">E-Mail</label>
+                <input class="form-control" type="email" @bind="_inviteEmail" placeholder="name@beispiel.ch" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Anzeigename</label>
+                <input class="form-control" @bind="_inviteName" placeholder="z. B. Dani" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Initiales Passwort</label>
+                <input class="form-control" type="password" @bind="_invitePassword" placeholder="Mindestens 8 Zeichen" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Rolle</label>
+                <select class="form-control" @bind="_inviteRole">
+                    <option value="0">Mitglied</option>
+                    <option value="1">Admin</option>
+                </select>
+            </div>
+
+            @if (_inviteError is not null)
+            {
+                <div class="alert alert-error">@_inviteError</div>
+            }
+
+            <div class="row" style="justify-content:flex-end; margin-top:1rem;">
+                <button class="btn btn-ghost" @onclick="() => _showInvite = false">Abbrechen</button>
+                <button class="btn btn-primary" @onclick="InviteUser">Einladen</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<HouseholdMemberDto>? _members;
+    private bool _isAdmin;
+    private int _householdId;
+    private string? _error;
+    private string? _success;
+
+    private bool _showInvite;
+    private string _inviteEmail = "";
+    private string _inviteName = "";
+    private string _invitePassword = "";
+    private int _inviteRole = 0;
+    private string? _inviteError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAdmin = await CurrentUser.IsAdminAsync();
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
+
+        if (_isAdmin)
+            await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        _members = await UserMgmt.GetMembersAsync(_householdId);
+    }
+
+    private async Task ToggleRole(string userId, HouseholdRole currentRole)
+    {
+        var newRole = currentRole == HouseholdRole.Admin ? HouseholdRole.Member : HouseholdRole.Admin;
+        await UserMgmt.SetRoleAsync(_householdId, userId, newRole);
+        await LoadMembers();
+    }
+
+    private async Task ToggleActive(string userId, bool isActive)
+    {
+        await UserMgmt.SetActiveAsync(userId, !isActive);
+        await LoadMembers();
+    }
+
+    private async Task InviteUser()
+    {
+        _inviteError = null;
+        if (string.IsNullOrWhiteSpace(_inviteEmail)) { _inviteError = "E-Mail ist erforderlich."; return; }
+        if (string.IsNullOrWhiteSpace(_invitePassword)) { _inviteError = "Passwort ist erforderlich."; return; }
+
+        var (ok, error) = await UserMgmt.InviteUserAsync(
+            _householdId,
+            _inviteEmail,
+            _inviteName,
+            (HouseholdRole)_inviteRole,
+            _invitePassword);
+
+        if (!ok) { _inviteError = error; return; }
+
+        _showInvite = false;
+        _inviteEmail = _inviteName = _invitePassword = "";
+        _success = "Benutzer erfolgreich eingeladen.";
+        await LoadMembers();
+    }
+}

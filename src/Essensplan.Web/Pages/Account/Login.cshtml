@@ -1,0 +1,56 @@
+@page "/anmelden"
+@model Essensplan.Web.Pages.Account.LoginModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Anmelden – Essensplan</title>
+    <link rel="stylesheet" href="~/app.css" />
+    <script>
+        (function () {
+            var stored = localStorage.getItem('essensplan-theme');
+            var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <div class="brand-mark" style="font-size:2.5rem;">🍲</div>
+            <h1 style="margin:0.5rem 0 0.25rem;">Essensplan</h1>
+            <p class="muted" style="margin:0;">Menüs &amp; Wochenplan</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-error">@Model.ErrorMessage</div>
+        }
+
+        <form method="post" asp-antiforgery="true">
+            <div class="form-group">
+                <label class="form-label" for="email">E-Mail</label>
+                <input id="email" name="Email" type="email" class="form-control"
+                       value="@Model.Email" autocomplete="email" autofocus required />
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">Passwort</label>
+                <input id="password" name="Password" type="password" class="form-control"
+                       autocomplete="current-password" required />
+            </div>
+            <label class="row" style="gap:0.5rem; margin-bottom:1.25rem; cursor:pointer;">
+                <input type="checkbox" name="RememberMe" value="true"
+                       @(Model.RememberMe ? "checked" : "") />
+                <span class="text-sm">Angemeldet bleiben (30 Tage)</span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

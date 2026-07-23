@@ -1,5 +1,6 @@
 @page "/menus"
 @inject MenuService MenuService
+@inject CurrentUserService CurrentUser
 
 <PageTitle>Menüs – Essensplan</PageTitle>
 
@@ -65,11 +66,16 @@ else
 @code {
     private List<Menu>? _menus;
     private MealType? _filter;
+    private int _householdId;
     private readonly MealType[] _mealTypes = Enum.GetValues<MealType>();
 
-    protected override async Task OnInitializedAsync() => await Load();
+    protected override async Task OnInitializedAsync()
+    {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
+        await Load();
+    }
 
-    private async Task Load() => _menus = await MenuService.GetAllAsync(_filter);
+    private async Task Load() => _menus = await MenuService.GetAllAsync(_householdId, _filter);
 
     private async Task Filter(MealType? mt)
     {

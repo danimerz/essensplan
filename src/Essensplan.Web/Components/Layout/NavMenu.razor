@@ -1,3 +1,5 @@
+@inject CurrentUserService CurrentUser
+
 @{
     var items = new (string Href, string Icon, string Label, bool ExactMatch)[]
     {
@@ -17,4 +19,22 @@
             <span>@item.Label</span>
         </NavLink>
     }
+
+    @if (_isAdmin)
+    {
+        <div class="nav-section-label">Administration</div>
+        <NavLink class="nav-item" href="admin/benutzer" Match="NavLinkMatch.Prefix">
+            <span class="nav-icon">👥</span>
+            <span>Benutzer</span>
+        </NavLink>
+    }
 </nav>
+
+@code {
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAdmin = await CurrentUser.IsAdminAsync();
+    }
+}

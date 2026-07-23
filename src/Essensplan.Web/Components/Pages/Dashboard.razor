@@ -2,6 +2,7 @@
 @inject WeekPlanService WeekPlanService
 @inject RecipeService RecipeService
 @inject MenuService MenuService
+@inject CurrentUserService CurrentUser
 
 <PageTitle>Übersicht – Essensplan</PageTitle>
 
@@ -70,19 +71,21 @@ else
     private int _menuCount;
     private int _filledThisWeek;
     private int _totalThisWeek;
+    private int _householdId;
 
     protected override async Task OnInitializedAsync()
     {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
         _today = DateOnly.FromDateTime(DateTime.Today);
         var monday = WeekPlanService.GetMonday(_today);
-        var week = await WeekPlanService.GetOrCreateWeekAsync(monday);
+        var week = await WeekPlanService.GetOrCreateWeekAsync(monday, _householdId);
 
         _todayEntries = week.Entries.Where(e => e.Date == _today).OrderBy(e => e.MealType).ToList();
         _totalThisWeek = week.Entries.Count;
         _filledThisWeek = week.Entries.Count(e => e.MenuId is not null);
 
-        _recipeCount = await RecipeService.CountAsync();
-        _menuCount = (await MenuService.GetAllAsync()).Count;
+        _recipeCount = await RecipeService.CountAsync(_householdId);
+        _menuCount = (await MenuService.GetAllAsync(_householdId)).Count;
     }
 
     private string Greeting()

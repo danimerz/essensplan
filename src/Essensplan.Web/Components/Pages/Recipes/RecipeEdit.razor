@@ -2,6 +2,7 @@
 @page "/rezepte/{Id:int}/bearbeiten"
 @inject RecipeService RecipeService
 @inject CategoryService CategoryService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Nav
 
 <PageTitle>@(IsEditMode ? "Rezept bearbeiten" : "Neues Rezept") – Essensplan</PageTitle>
@@ -106,14 +107,16 @@
     private RecipeFormModel _model = new();
     private List<IngredientRow> _ingredients = new();
     private List<RecipeCategory> _categories = new();
+    private int _householdId;
 
     protected override async Task OnInitializedAsync()
     {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
         _categories = await CategoryService.GetAllAsync();
 
         if (IsEditMode)
         {
-            var recipe = await RecipeService.GetByIdAsync(Id!.Value);
+            var recipe = await RecipeService.GetByIdAsync(Id!.Value, _householdId);
             if (recipe is null)
             {
                 Nav.NavigateTo("/rezepte");
@@ -144,9 +147,7 @@
         }
 
         if (_ingredients.Count == 0)
-        {
             AddIngredient();
-        }
     }
 
     private void AddIngredient() => _ingredients.Add(new IngredientRow());
@@ -177,12 +178,12 @@
 
         if (IsEditMode)
         {
-            await RecipeService.UpdateAsync(recipe);
+            await RecipeService.UpdateAsync(recipe, _householdId);
             Nav.NavigateTo($"/rezepte/{Id}");
         }
         else
         {
-            var created = await RecipeService.CreateAsync(recipe);
+            var created = await RecipeService.CreateAsync(recipe, _householdId);
             Nav.NavigateTo($"/rezepte/{created.Id}");
         }
     }

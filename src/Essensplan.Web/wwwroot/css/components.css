@@ -563,3 +563,77 @@ a.card:hover .media-veil { opacity: 1; }
 }
 .hero h2 { color: #fff; margin-bottom: 0.35rem; }
 .hero p { color: rgba(255,255,255,0.85); }
+
+/* ==========================================================================
+   Auth pages (Login / Setup)
+   ========================================================================== */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 1.5rem;
+}
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 1.25rem);
+  box-shadow: var(--shadow-lg);
+  padding: 2.25rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.form-group { margin-bottom: 1.1rem; }
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.form-control::placeholder { color: var(--text-faint); }
+
+.alert-error { background: var(--danger-soft); color: var(--danger); }
+
+/* Star rating */
+.star-rating { display: flex; gap: 0.25rem; align-items: center; }
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0.1rem;
+  line-height: 1;
+  transition: transform var(--duration-fast) var(--ease);
+}
+.star-btn:hover { transform: scale(1.15); }
+.star-btn.filled { color: var(--warning, #FFD166); }
+.star-btn.empty { color: var(--border-strong); }

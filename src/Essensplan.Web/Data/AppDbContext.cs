@@ -1,14 +1,15 @@
 using Essensplan.Web.Models;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Essensplan.Web.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<AppUser>
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public DbSet<Household> Households => Set<Household>();
+    public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
     public DbSet<RecipeCategory> RecipeCategories => Set<RecipeCategory>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
@@ -16,9 +17,21 @@ public class AppDbContext : DbContext
     public DbSet<MenuRecipe> MenuRecipes => Set<MenuRecipe>();
     public DbSet<WeekPlan> WeekPlans => Set<WeekPlan>();
     public DbSet<WeekPlanEntry> WeekPlanEntries => Set<WeekPlanEntry>();
+    public DbSet<RecipeRating> RecipeRatings => Set<RecipeRating>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<HouseholdMembership>(entity =>
+        {
+            entity.HasIndex(m => new { m.HouseholdId, m.UserId }).IsUnique();
+            entity.HasOne(m => m.Household).WithMany(h => h.Memberships)
+                  .HasForeignKey(m => m.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(m => m.User).WithMany(u => u.HouseholdMemberships)
+                  .HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<RecipeCategory>(entity =>
         {
             entity.HasIndex(c => c.Name).IsUnique();
@@ -26,55 +39,57 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Recipe>(entity =>
         {
-            entity.HasOne(r => r.Category)
-                  .WithMany(c => c.Recipes)
-                  .HasForeignKey(r => r.CategoryId)
-                  .OnDelete(DeleteBehavior.SetNull);
-
+            entity.HasOne(r => r.Category).WithMany(c => c.Recipes)
+                  .HasForeignKey(r => r.CategoryId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(r => r.Household).WithMany(h => h.Recipes)
+                  .HasForeignKey(r => r.HouseholdId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(r => r.Name);
         });
 
         modelBuilder.Entity<RecipeIngredient>(entity =>
         {
-            entity.HasOne(i => i.Recipe)
-                  .WithMany(r => r.Ingredients)
-                  .HasForeignKey(i => i.RecipeId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
+            entity.HasOne(i => i.Recipe).WithMany(r => r.Ingredients)
+                  .HasForeignKey(i => i.RecipeId).OnDelete(DeleteBehavior.Cascade);
             entity.Property(i => i.Quantity).HasPrecision(10, 2);
         });
 
         modelBuilder.Entity<MenuRecipe>(entity =>
         {
-            entity.HasOne(mr => mr.Menu)
-                  .WithMany(m => m.MenuRecipes)
-                  .HasForeignKey(mr => mr.MenuId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(mr => mr.Menu).WithMany(m => m.MenuRecipes)
+                  .HasForeignKey(mr => mr.MenuId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(mr => mr.Recipe).WithMany(r => r.MenuRecipes)
+                  .HasForeignKey(mr => mr.RecipeId).OnDelete(DeleteBehavior.Cascade);
+        });
 
-            entity.HasOne(mr => mr.Recipe)
-                  .WithMany(r => r.MenuRecipes)
-                  .HasForeignKey(mr => mr.RecipeId)
-                  .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Menu>(entity =>
+        {
+            entity.HasOne(m => m.Household).WithMany(h => h.Menus)
+                  .HasForeignKey(m => m.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WeekPlan>(entity =>
         {
-            entity.HasIndex(w => w.StartDate).IsUnique();
+            entity.HasIndex(w => new { w.HouseholdId, w.StartDate }).IsUnique();
+            entity.HasOne(w => w.Household).WithMany(h => h.WeekPlans)
+                  .HasForeignKey(w => w.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WeekPlanEntry>(entity =>
         {
-            entity.HasOne(e => e.WeekPlan)
-                  .WithMany(w => w.Entries)
-                  .HasForeignKey(e => e.WeekPlanId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Menu)
-                  .WithMany(m => m.WeekPlanEntries)
-                  .HasForeignKey(e => e.MenuId)
-                  .OnDelete(DeleteBehavior.SetNull);
-
+            entity.HasOne(e => e.WeekPlan).WithMany(w => w.Entries)
+                  .HasForeignKey(e => e.WeekPlanId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Menu).WithMany(m => m.WeekPlanEntries)
+                  .HasForeignKey(e => e.MenuId).OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => new { e.WeekPlanId, e.Date, e.MealType }).IsUnique();
+        });
+
+        modelBuilder.Entity<RecipeRating>(entity =>
+        {
+            entity.HasIndex(r => new { r.RecipeId, r.UserId }).IsUnique();
+            entity.HasOne(r => r.Recipe).WithMany(rec => rec.Ratings)
+                  .HasForeignKey(r => r.RecipeId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(r => r.User).WithMany(u => u.Ratings)
+                  .HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RecipeCategory>().HasData(

@@ -13,10 +13,13 @@ public class RecipeService
         _dbFactory = dbFactory;
     }
 
-    public async Task<List<Recipe>> GetAllAsync(string? search = null, int? categoryId = null)
+    public async Task<List<Recipe>> GetAllAsync(int householdId, string? search = null, int? categoryId = null)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var query = db.Recipes.Include(r => r.Category).AsQueryable();
+        var query = db.Recipes
+            .Where(r => r.HouseholdId == householdId)
+            .Include(r => r.Category)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -26,40 +29,40 @@ public class RecipeService
         }
 
         if (categoryId.HasValue)
-        {
             query = query.Where(r => r.CategoryId == categoryId);
-        }
 
         return await query.OrderBy(r => r.Name).ToListAsync();
     }
 
-    public async Task<Recipe?> GetByIdAsync(int id)
+    public async Task<Recipe?> GetByIdAsync(int id, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         return await db.Recipes
+            .Where(r => r.Id == id && r.HouseholdId == householdId)
             .Include(r => r.Category)
             .Include(r => r.Ingredients.OrderBy(i => i.SortOrder))
-            .FirstOrDefaultAsync(r => r.Id == id);
+            .FirstOrDefaultAsync();
     }
 
-    public async Task<Recipe> CreateAsync(Recipe recipe)
+    public async Task<Recipe> CreateAsync(Recipe recipe, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
+        recipe.HouseholdId = householdId;
         recipe.CreatedAt = DateTime.UtcNow;
         for (var i = 0; i < recipe.Ingredients.Count; i++)
-        {
             recipe.Ingredients[i].SortOrder = i;
-        }
+
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync();
 
-        // Auto-create a menu with the same name if none exists yet
-        var menuExists = await db.Menus.AnyAsync(m => m.Name == recipe.Name);
+        // Auto-create a matching menu if none with the same name exists in this household
+        var menuExists = await db.Menus.AnyAsync(m => m.Name == recipe.Name && m.HouseholdId == householdId);
         if (!menuExists)
         {
             db.Menus.Add(new Menu
             {
                 Name = recipe.Name,
+                HouseholdId = householdId,
                 AllowedMealTypes = await GuessMealTypeFlagsAsync(db, recipe.CategoryId),
                 CreatedAt = DateTime.UtcNow,
                 MenuRecipes = [new MenuRecipe { RecipeId = recipe.Id, SortOrder = 0 }]
@@ -84,13 +87,13 @@ public class RecipeService
         return MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
     }
 
-    public async Task UpdateAsync(Recipe recipe)
+    public async Task UpdateAsync(Recipe recipe, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
 
         var existing = await db.Recipes
             .Include(r => r.Ingredients)
-            .FirstOrDefaultAsync(r => r.Id == recipe.Id);
+            .FirstOrDefaultAsync(r => r.Id == recipe.Id && r.HouseholdId == householdId);
 
         if (existing is null) return;
 
@@ -118,18 +121,18 @@ public class RecipeService
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var recipe = await db.Recipes.FindAsync(id);
+        var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == id && r.HouseholdId == householdId);
         if (recipe is null) return;
         db.Recipes.Remove(recipe);
         await db.SaveChangesAsync();
     }
 
-    public async Task<int> CountAsync()
+    public async Task<int> CountAsync(int householdId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        return await db.Recipes.CountAsync();
+        return await db.Recipes.CountAsync(r => r.HouseholdId == householdId);
     }
 }

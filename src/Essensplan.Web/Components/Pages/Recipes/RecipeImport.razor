@@ -2,6 +2,7 @@
 @inject RecipeImportService ImportService
 @inject RecipeService RecipeService
 @inject CategoryService CategoryService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Nav
 
 <PageTitle>Rezept importieren – Essensplan</PageTitle>
@@ -125,9 +126,11 @@
     private Recipe? _imported;
     private string _categoryId = "";
     private List<RecipeCategory> _categories = new();
+    private int _householdId;
 
     protected override async Task OnInitializedAsync()
     {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
         _categories = await CategoryService.GetAllAsync();
     }
 
@@ -144,13 +147,9 @@
         _loading = false;
 
         if (!result.Success)
-        {
             _error = result.ErrorMessage;
-        }
         else
-        {
             _imported = result.Recipe;
-        }
     }
 
     private async Task SaveImported()
@@ -158,7 +157,7 @@
         if (_imported is null) return;
 
         _imported.CategoryId = int.TryParse(_categoryId, out var cid) ? cid : null;
-        var created = await RecipeService.CreateAsync(_imported);
+        var created = await RecipeService.CreateAsync(_imported, _householdId);
         Nav.NavigateTo($"/rezepte/{created.Id}");
     }
 
