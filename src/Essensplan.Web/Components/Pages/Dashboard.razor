@@ -1,0 +1,104 @@
+@page "/"
+@inject WeekPlanService WeekPlanService
+@inject RecipeService RecipeService
+@inject MenuService MenuService
+
+<PageTitle>Übersicht – Essensplan</PageTitle>
+
+<div class="hero">
+    <span class="eyebrow" style="color:rgba(255,255,255,0.85);">@_today.ToString("dddd, d. MMMM yyyy", _culture)</span>
+    <h2>@Greeting()</h2>
+    <p>@TodaySummary()</p>
+</div>
+
+<div class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); margin-bottom:1.75rem;">
+    <div class="stat-tile">
+        <span class="stat-value">@_recipeCount</span>
+        <span class="stat-label">Rezepte</span>
+    </div>
+    <div class="stat-tile">
+        <span class="stat-value">@_menuCount</span>
+        <span class="stat-label">Menüs</span>
+    </div>
+    <div class="stat-tile">
+        <span class="stat-value">@_filledThisWeek/@_totalThisWeek</span>
+        <span class="stat-label">Diese Woche geplant</span>
+    </div>
+</div>
+
+<div class="row-between" style="margin-bottom:1rem;">
+    <h2 class="mb-0">Heute</h2>
+    <a href="/wochenplan" class="btn btn-secondary btn-sm">Zum Wochenplan →</a>
+</div>
+
+@if (_todayEntries is null)
+{
+    <span class="spinner"></span>
+}
+else
+{
+    <div class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); margin-bottom:2rem;">
+        @foreach (var entry in _todayEntries)
+        {
+            <div class="card card-pad">
+                <span class="badge-mealtype" style="margin-bottom:0.6rem;">@entry.MealType.ToIcon() @entry.MealType.ToGermanLabel()</span>
+                @if (entry.Menu is not null)
+                {
+                    <div class="recipe-card-title">@entry.Menu.Name</div>
+                }
+                else
+                {
+                    <p class="muted text-sm mb-0">Noch nicht geplant.</p>
+                }
+            </div>
+        }
+    </div>
+}
+
+<div class="row" style="gap:0.75rem; flex-wrap:wrap;">
+    <a class="btn btn-secondary" href="/rezepte/neu">📖 Rezept erfassen</a>
+    <a class="btn btn-secondary" href="/rezepte/import">⬇️ Rezept importieren</a>
+    <a class="btn btn-secondary" href="/menus/neu">🍽️ Menü zusammenstellen</a>
+    <a class="btn btn-primary" href="/wochenplan">📅 Wochenplan öffnen</a>
+</div>
+
+@code {
+    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
+    private DateOnly _today;
+    private List<WeekPlanEntry>? _todayEntries;
+    private int _recipeCount;
+    private int _menuCount;
+    private int _filledThisWeek;
+    private int _totalThisWeek;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _today = DateOnly.FromDateTime(DateTime.Today);
+        var monday = WeekPlanService.GetMonday(_today);
+        var week = await WeekPlanService.GetOrCreateWeekAsync(monday);
+
+        _todayEntries = week.Entries.Where(e => e.Date == _today).OrderBy(e => e.MealType).ToList();
+        _totalThisWeek = week.Entries.Count;
+        _filledThisWeek = week.Entries.Count(e => e.MenuId is not null);
+
+        _recipeCount = await RecipeService.CountAsync();
+        _menuCount = (await MenuService.GetAllAsync()).Count;
+    }
+
+    private string Greeting()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour < 11) return "Guten Morgen! 🌅";
+        if (hour < 17) return "Schönen Tag! ☀️";
+        return "Guten Abend! 🌙";
+    }
+
+    private string TodaySummary()
+    {
+        if (_todayEntries is null || _todayEntries.Count == 0) return "Dein heutiger Speiseplan ist noch leer.";
+        var planned = _todayEntries.Count(e => e.MenuId is not null);
+        return planned == _todayEntries.Count
+            ? "Heute ist alles geplant – guten Appetit!"
+            : $"{planned} von {_todayEntries.Count} Mahlzeiten heute geplant.";
+    }
+}

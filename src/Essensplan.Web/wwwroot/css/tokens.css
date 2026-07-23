@@ -1,0 +1,109 @@
+/* ==========================================================================
+   Design tokens — Essensplan
+   Warm, food-forward palette. Light is the default; dark is opt-in via
+   [data-theme="dark"] on <html>, set by theme.js (see wwwroot/js/theme.js).
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f7f4ef;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #f1ece3;
+  --surface-hover: #ebe4d8;
+  --border: #e7ded0;
+  --border-strong: #d8cbb5;
+
+  /* Text */
+  --text: #23201b;
+  --text-muted: #6f6656;
+  --text-faint: #a89d87;
+
+  /* Brand */
+  --primary: #ff6b4a;
+  --primary-hover: #f2532f;
+  --primary-soft: #ffe3da;
+  --primary-contrast: #ffffff;
+
+  --secondary: #2f6f5e;
+  --secondary-soft: #dcefe8;
+
+  --accent: #ffb648;
+  --accent-soft: #fff1d6;
+
+  --danger: #e5484d;
+  --danger-soft: #fbe0e0;
+  --success: #2fae79;
+  --success-soft: #dcf5e9;
+
+  /* Gradients */
+  --gradient-brand: linear-gradient(135deg, #ff6b4a 0%, #ff9a56 55%, #ffb648 100%);
+  --gradient-hero: linear-gradient(135deg, #2f6f5e 0%, #245b4d 100%);
+  --gradient-veil: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 100%);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(35, 26, 15, 0.06), 0 1px 1px rgba(35, 26, 15, 0.04);
+  --shadow-md: 0 6px 16px -4px rgba(35, 26, 15, 0.14), 0 2px 6px -2px rgba(35, 26, 15, 0.08);
+  --shadow-lg: 0 20px 40px -12px rgba(35, 26, 15, 0.22), 0 8px 16px -6px rgba(35, 26, 15, 0.12);
+  --shadow-glow: 0 8px 24px -6px rgba(255, 107, 74, 0.35);
+
+  /* Shape */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+
+  /* Layout */
+  --sidebar-width: 264px;
+  --topbar-height: 64px;
+  --bottomnav-height: 68px;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #15130f;
+  --bg-elevated: #1c1a15;
+  --surface: #201d18;
+  --surface-alt: #2a261f;
+  --surface-hover: #332e25;
+  --border: #38322a;
+  --border-strong: #453e32;
+
+  --text: #f3ede2;
+  --text-muted: #b3a894;
+  --text-faint: #7c7261;
+
+  --primary: #ff8a68;
+  --primary-hover: #ff9f7f;
+  --primary-soft: #402a22;
+  --primary-contrast: #201209;
+
+  --secondary: #5cbaa2;
+  --secondary-soft: #1f3630;
+
+  --accent: #ffc168;
+  --accent-soft: #3c2f18;
+
+  --danger: #ff6b6f;
+  --danger-soft: #3d2224;
+  --success: #4ecf9a;
+  --success-soft: #1d3a2c;
+
+  --gradient-brand: linear-gradient(135deg, #ff8a68 0%, #ff7a5c 55%, #ffc168 100%);
+  --gradient-hero: linear-gradient(135deg, #1f3d34 0%, #16281f 100%);
+  --gradient-veil: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.75) 100%);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 18px -4px rgba(0, 0, 0, 0.5), 0 2px 8px -2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 48px -14px rgba(0, 0, 0, 0.65), 0 10px 20px -8px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 10px 28px -6px rgba(255, 138, 104, 0.35);
+}

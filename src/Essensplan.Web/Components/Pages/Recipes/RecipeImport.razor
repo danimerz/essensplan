@@ -1,0 +1,171 @@
+@page "/rezepte/import"
+@inject RecipeImportService ImportService
+@inject RecipeService RecipeService
+@inject CategoryService CategoryService
+@inject NavigationManager Nav
+
+<PageTitle>Rezept importieren – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Rezeptbuch</span>
+        <h1>Rezept importieren</h1>
+        <p class="lead">Füge den Link zu einem Rezept ein – die meisten Kochseiten hinterlegen strukturierte Daten, die automatisch ausgelesen werden.</p>
+    </div>
+</div>
+
+<div class="container-narrow">
+    <div class="card card-pad" style="margin-bottom:1.25rem;">
+        <div class="field mb-0">
+            <label>Rezept-URL</label>
+            <div class="row">
+                <input class="input" style="flex:1;" placeholder="https://www.beispiel-rezepte.de/spaghetti-bolognese" @bind="_url" @bind:event="oninput" />
+                <button class="btn btn-primary" disabled="@_loading" @onclick="Import">
+                    @if (_loading)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <span>Importieren</span>
+                    }
+                </button>
+            </div>
+            <span class="hint">Funktioniert mit Seiten, die schema.org/Recipe-Daten (JSON-LD) einbetten – das trifft auf die meisten Rezept-Websites zu.</span>
+        </div>
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">⚠️ @_error</div>
+    }
+
+    @if (_imported is not null)
+    {
+        <div class="alert alert-success">✅ Rezept gefunden – bitte prüfen und ggf. anpassen, bevor du speicherst.</div>
+
+        <EditForm Model="_imported" OnValidSubmit="SaveImported">
+            <div class="card card-pad" style="margin-bottom:1.25rem;">
+                <div class="field">
+                    <label>Name</label>
+                    <InputText class="input" @bind-Value="_imported.Name" />
+                </div>
+                <div class="field">
+                    <label>Kurzbeschreibung</label>
+                    <InputTextArea class="textarea" style="min-height:3.5rem;" @bind-Value="_imported.Description" />
+                </div>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Kategorie</label>
+                        <InputSelect class="input" @bind-Value="_categoryId">
+                            <option value="">– keine –</option>
+                            @foreach (var cat in _categories)
+                            {
+                                <option value="@cat.Id">@cat.Icon @cat.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="field">
+                        <label>Bild-URL</label>
+                        <InputText class="input" @bind-Value="_imported.ImageUrl" />
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div class="field">
+                        <label>Vorbereitung (min)</label>
+                        <InputNumber class="input" @bind-Value="_imported.PrepTimeMinutes" />
+                    </div>
+                    <div class="field">
+                        <label>Kochzeit (min)</label>
+                        <InputNumber class="input" @bind-Value="_imported.CookTimeMinutes" />
+                    </div>
+                    <div class="field">
+                        <label>Portionen</label>
+                        <InputNumber class="input" @bind-Value="_imported.Servings" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-pad" style="margin-bottom:1.25rem;">
+                <h3>Zutaten (@_imported.Ingredients.Count)</h3>
+                @if (_imported.Ingredients.Count == 0)
+                {
+                    <p class="muted">Keine Zutaten gefunden – bitte manuell ergänzen.</p>
+                }
+                else
+                {
+                    <ul class="stack" style="gap:0.35rem;">
+                        @foreach (var ing in _imported.Ingredients)
+                        {
+                            <li class="text-sm">@(ing.Quantity?.ToString("0.##")) @ing.Unit @ing.Name</li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="card card-pad" style="margin-bottom:1.25rem;">
+                <div class="field mb-0">
+                    <label>Zubereitung</label>
+                    <InputTextArea class="textarea" style="min-height:10rem;" @bind-Value="_imported.Instructions" />
+                </div>
+            </div>
+
+            <div class="row" style="justify-content:flex-end;">
+                <button type="button" class="btn btn-ghost" @onclick="Reset">Verwerfen</button>
+                <button type="submit" class="btn btn-primary">Rezept speichern</button>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private string _url = "";
+    private bool _loading;
+    private string? _error;
+    private Recipe? _imported;
+    private string _categoryId = "";
+    private List<RecipeCategory> _categories = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync();
+    }
+
+    private async Task Import()
+    {
+        if (string.IsNullOrWhiteSpace(_url)) return;
+
+        _loading = true;
+        _error = null;
+        _imported = null;
+
+        var result = await ImportService.ImportFromUrlAsync(_url.Trim());
+
+        _loading = false;
+
+        if (!result.Success)
+        {
+            _error = result.ErrorMessage;
+        }
+        else
+        {
+            _imported = result.Recipe;
+        }
+    }
+
+    private async Task SaveImported()
+    {
+        if (_imported is null) return;
+
+        _imported.CategoryId = int.TryParse(_categoryId, out var cid) ? cid : null;
+        var created = await RecipeService.CreateAsync(_imported);
+        Nav.NavigateTo($"/rezepte/{created.Id}");
+    }
+
+    private void Reset()
+    {
+        _imported = null;
+        _url = "";
+        _error = null;
+    }
+}

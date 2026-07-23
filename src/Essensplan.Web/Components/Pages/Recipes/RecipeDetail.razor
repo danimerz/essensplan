@@ -1,0 +1,125 @@
+@page "/rezepte/{Id:int}"
+@inject RecipeService RecipeService
+@inject NavigationManager Nav
+
+<PageTitle>@(_recipe?.Name ?? "Rezept") – Essensplan</PageTitle>
+
+@if (_recipe is null)
+{
+    <span class="spinner"></span>
+}
+else
+{
+    <div class="row-between" style="margin-bottom:1rem;">
+        <a href="/rezepte" class="btn btn-ghost btn-sm">← Zurück</a>
+        <div class="row">
+            <a href="@($"/rezepte/{_recipe.Id}/bearbeiten")" class="btn btn-secondary btn-sm">✏️ Bearbeiten</a>
+            <button class="btn btn-danger btn-sm" @onclick="() => _confirmDelete = true">🗑️ Löschen</button>
+        </div>
+    </div>
+
+    <div class="card" style="overflow:hidden; margin-bottom:1.5rem;">
+        <div class="recipe-card-media" style="aspect-ratio: 21/9;">
+            @if (!string.IsNullOrWhiteSpace(_recipe.ImageUrl))
+            {
+                <img src="@_recipe.ImageUrl" alt="@_recipe.Name" />
+            }
+            else
+            {
+                <div class="placeholder">@(_recipe.Category?.Icon ?? "🍽️")</div>
+            }
+        </div>
+        <div class="card-pad">
+            @if (_recipe.Category is not null)
+            {
+                <span class="chip" style="background:color-mix(in srgb, @_recipe.Category.Color 16%, transparent); color:@_recipe.Category.Color; margin-bottom:0.6rem;">
+                    <span class="chip-dot"></span>@_recipe.Category.Name
+                </span>
+            }
+            <h1>@_recipe.Name</h1>
+            @if (!string.IsNullOrWhiteSpace(_recipe.Description))
+            {
+                <p class="lead">@_recipe.Description</p>
+            }
+
+            <div class="row" style="gap:1.5rem; margin-top:1rem;">
+                <div class="stat-tile" style="padding:0.7rem 1rem;">
+                    <span class="stat-value" style="font-size:1.1rem;">@_recipe.PrepTimeMinutes min</span>
+                    <span class="stat-label">Vorbereitung</span>
+                </div>
+                <div class="stat-tile" style="padding:0.7rem 1rem;">
+                    <span class="stat-value" style="font-size:1.1rem;">@_recipe.CookTimeMinutes min</span>
+                    <span class="stat-label">Kochzeit</span>
+                </div>
+                <div class="stat-tile" style="padding:0.7rem 1rem;">
+                    <span class="stat-value" style="font-size:1.1rem;">@_recipe.Servings</span>
+                    <span class="stat-label">Portionen</span>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_recipe.SourceUrl))
+            {
+                <p class="text-sm muted" style="margin-top:1rem;">
+                    Quelle: <a href="@_recipe.SourceUrl" target="_blank" rel="noopener noreferrer">@_recipe.SourceUrl</a>
+                </p>
+            }
+        </div>
+    </div>
+
+    <div class="form-grid" style="gap:1.5rem;">
+        <div class="card card-pad">
+            <h2>Zutaten</h2>
+            @if (_recipe.Ingredients.Count == 0)
+            {
+                <p class="muted">Keine Zutaten erfasst.</p>
+            }
+            else
+            {
+                <ul class="stack" style="gap:0.5rem;">
+                    @foreach (var ing in _recipe.Ingredients.OrderBy(i => i.SortOrder))
+                    {
+                        <li class="row" style="gap:0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">
+                            <strong style="min-width:70px;">@(ing.Quantity?.ToString("0.##")) @ing.Unit</strong>
+                            <span>@ing.Name</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="card card-pad">
+            <h2>Zubereitung</h2>
+            @if (string.IsNullOrWhiteSpace(_recipe.Instructions))
+            {
+                <p class="muted">Keine Anleitung erfasst.</p>
+            }
+            else
+            {
+                <p style="white-space: pre-line;">@_recipe.Instructions</p>
+            }
+        </div>
+    </div>
+}
+
+<ConfirmDialog IsOpen="_confirmDelete"
+               Title="Rezept löschen?"
+               Message="@($"„{_recipe?.Name}“ wird endgültig gelöscht.")"
+               OnCancel="() => _confirmDelete = false"
+               OnConfirm="DeleteRecipe" />
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Recipe? _recipe;
+    private bool _confirmDelete;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _recipe = await RecipeService.GetByIdAsync(Id);
+    }
+
+    private async Task DeleteRecipe()
+    {
+        await RecipeService.DeleteAsync(Id);
+        Nav.NavigateTo("/rezepte");
+    }
+}

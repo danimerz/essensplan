@@ -1,0 +1,209 @@
+@page "/rezepte/neu"
+@page "/rezepte/{Id:int}/bearbeiten"
+@inject RecipeService RecipeService
+@inject CategoryService CategoryService
+@inject NavigationManager Nav
+
+<PageTitle>@(IsEditMode ? "Rezept bearbeiten" : "Neues Rezept") – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Rezeptbuch</span>
+        <h1>@(IsEditMode ? "Rezept bearbeiten" : "Neues Rezept")</h1>
+    </div>
+</div>
+
+<div class="container-narrow">
+    <EditForm Model="_model" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+
+        <div class="card card-pad" style="margin-bottom:1.25rem;">
+            <div class="field">
+                <label>Name</label>
+                <InputText class="input" @bind-Value="_model.Name" placeholder="z. B. Spaghetti Bolognese" />
+            </div>
+
+            <div class="field">
+                <label>Kurzbeschreibung</label>
+                <InputTextArea class="textarea" style="min-height:3.5rem;" @bind-Value="_model.Description" placeholder="Ein Satz zum Gericht…" />
+            </div>
+
+            <div class="form-grid">
+                <div class="field">
+                    <label>Kategorie</label>
+                    <InputSelect class="input" @bind-Value="_model.CategoryId">
+                        <option value="">– keine –</option>
+                        @foreach (var cat in _categories)
+                        {
+                            <option value="@cat.Id">@cat.Icon @cat.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="field">
+                    <label>Bild-URL</label>
+                    <InputText class="input" @bind-Value="_model.ImageUrl" placeholder="https://…" />
+                </div>
+            </div>
+
+            <div class="input-row">
+                <div class="field">
+                    <label>Vorbereitung (min)</label>
+                    <InputNumber class="input" @bind-Value="_model.PrepTimeMinutes" />
+                </div>
+                <div class="field">
+                    <label>Kochzeit (min)</label>
+                    <InputNumber class="input" @bind-Value="_model.CookTimeMinutes" />
+                </div>
+                <div class="field">
+                    <label>Portionen</label>
+                    <InputNumber class="input" @bind-Value="_model.Servings" />
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-pad" style="margin-bottom:1.25rem;">
+            <div class="row-between">
+                <h3 class="mb-0">Zutaten</h3>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="AddIngredient">+ Zutat</button>
+            </div>
+            <div style="margin-top:1rem;">
+                @for (var i = 0; i < _ingredients.Count; i++)
+                {
+                    var index = i;
+                    <div class="ingredient-row">
+                        <input class="input" placeholder="Menge" value="@_ingredients[index].Quantity" @oninput="e => _ingredients[index].Quantity = e.Value?.ToString() ?? string.Empty" />
+                        <input class="input" placeholder="Einheit" value="@_ingredients[index].Unit" @oninput="e => _ingredients[index].Unit = e.Value?.ToString() ?? string.Empty" />
+                        <input class="input" placeholder="Zutat" value="@_ingredients[index].Name" @oninput="e => _ingredients[index].Name = e.Value?.ToString() ?? string.Empty" />
+                        <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Entfernen" @onclick="() => _ingredients.RemoveAt(index)">✕</button>
+                    </div>
+                }
+                @if (_ingredients.Count == 0)
+                {
+                    <p class="muted text-sm">Noch keine Zutaten – füge welche hinzu.</p>
+                }
+            </div>
+        </div>
+
+        <div class="card card-pad" style="margin-bottom:1.25rem;">
+            <div class="field mb-0">
+                <label>Zubereitung</label>
+                <InputTextArea class="textarea" style="min-height:10rem;" @bind-Value="_model.Instructions" placeholder="Schritt für Schritt…" />
+            </div>
+        </div>
+
+        <div class="row" style="justify-content:flex-end;">
+            <a class="btn btn-ghost" href="@CancelHref">Abbrechen</a>
+            <button type="submit" class="btn btn-primary">@(IsEditMode ? "Speichern" : "Rezept anlegen")</button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private bool IsEditMode => Id.HasValue;
+    private string CancelHref => IsEditMode ? $"/rezepte/{Id}" : "/rezepte";
+
+    private RecipeFormModel _model = new();
+    private List<IngredientRow> _ingredients = new();
+    private List<RecipeCategory> _categories = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync();
+
+        if (IsEditMode)
+        {
+            var recipe = await RecipeService.GetByIdAsync(Id!.Value);
+            if (recipe is null)
+            {
+                Nav.NavigateTo("/rezepte");
+                return;
+            }
+
+            _model = new RecipeFormModel
+            {
+                Name = recipe.Name,
+                Description = recipe.Description,
+                Instructions = recipe.Instructions,
+                PrepTimeMinutes = recipe.PrepTimeMinutes,
+                CookTimeMinutes = recipe.CookTimeMinutes,
+                Servings = recipe.Servings,
+                ImageUrl = recipe.ImageUrl,
+                CategoryId = recipe.CategoryId?.ToString() ?? ""
+            };
+
+            _ingredients = recipe.Ingredients
+                .OrderBy(i => i.SortOrder)
+                .Select(i => new IngredientRow
+                {
+                    Quantity = i.Quantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                    Unit = i.Unit ?? "",
+                    Name = i.Name
+                })
+                .ToList();
+        }
+
+        if (_ingredients.Count == 0)
+        {
+            AddIngredient();
+        }
+    }
+
+    private void AddIngredient() => _ingredients.Add(new IngredientRow());
+
+    private async Task Save()
+    {
+        var recipe = new Recipe
+        {
+            Id = Id ?? 0,
+            Name = _model.Name.Trim(),
+            Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+            Instructions = string.IsNullOrWhiteSpace(_model.Instructions) ? null : _model.Instructions.Trim(),
+            PrepTimeMinutes = _model.PrepTimeMinutes,
+            CookTimeMinutes = _model.CookTimeMinutes,
+            Servings = _model.Servings <= 0 ? 1 : _model.Servings,
+            ImageUrl = string.IsNullOrWhiteSpace(_model.ImageUrl) ? null : _model.ImageUrl.Trim(),
+            CategoryId = int.TryParse(_model.CategoryId, out var cid) ? cid : null,
+            Ingredients = _ingredients
+                .Where(i => !string.IsNullOrWhiteSpace(i.Name))
+                .Select(i => new RecipeIngredient
+                {
+                    Name = i.Name.Trim(),
+                    Unit = string.IsNullOrWhiteSpace(i.Unit) ? null : i.Unit.Trim(),
+                    Quantity = decimal.TryParse(i.Quantity.Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var q) ? q : null
+                })
+                .ToList()
+        };
+
+        if (IsEditMode)
+        {
+            await RecipeService.UpdateAsync(recipe);
+            Nav.NavigateTo($"/rezepte/{Id}");
+        }
+        else
+        {
+            var created = await RecipeService.CreateAsync(recipe);
+            Nav.NavigateTo($"/rezepte/{created.Id}");
+        }
+    }
+
+    private class RecipeFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Bitte einen Namen angeben.")]
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? Instructions { get; set; }
+        public int PrepTimeMinutes { get; set; }
+        public int CookTimeMinutes { get; set; }
+        public int Servings { get; set; } = 4;
+        public string? ImageUrl { get; set; }
+        public string CategoryId { get; set; } = "";
+    }
+
+    private class IngredientRow
+    {
+        public string Quantity { get; set; } = "";
+        public string Unit { get; set; } = "";
+        public string Name { get; set; } = "";
+    }
+}
