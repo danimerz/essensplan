@@ -52,7 +52,36 @@ public class RecipeService
         }
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync();
+
+        // Auto-create a menu with the same name if none exists yet
+        var menuExists = await db.Menus.AnyAsync(m => m.Name == recipe.Name);
+        if (!menuExists)
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = recipe.Name,
+                AllowedMealTypes = await GuessMealTypeFlagsAsync(db, recipe.CategoryId),
+                CreatedAt = DateTime.UtcNow,
+                MenuRecipes = [new MenuRecipe { RecipeId = recipe.Id, SortOrder = 0 }]
+            });
+            await db.SaveChangesAsync();
+        }
+
         return recipe;
+    }
+
+    private static async Task<int> GuessMealTypeFlagsAsync(AppDbContext db, int? categoryId)
+    {
+        if (categoryId is null) return MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
+
+        var name = await db.RecipeCategories
+            .Where(c => c.Id == categoryId)
+            .Select(c => c.Name)
+            .FirstOrDefaultAsync() ?? "";
+
+        if (name.Contains("rühstück", StringComparison.OrdinalIgnoreCase)) return MealTypeFlags.Fruehstueck;
+        if (name.Contains("snack", StringComparison.OrdinalIgnoreCase)) return MealTypeFlags.Snack;
+        return MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
     }
 
     public async Task UpdateAsync(Recipe recipe)

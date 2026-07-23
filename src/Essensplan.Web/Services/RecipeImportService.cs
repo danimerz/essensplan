@@ -15,6 +15,8 @@ public class RecipeImportResult
 /// Imports a recipe from a public URL by looking for schema.org/Recipe structured data
 /// (JSON-LD, embedded as &lt;script type="application/ld+json"&gt;), which the vast majority
 /// of modern recipe websites publish for SEO purposes.
+/// Falls back to schema.org/HowTo JSON-LD + HTML Microdata (itemprop) for sites like
+/// swissmilk.ch that split their recipe data across both formats.
 /// </summary>
 public class RecipeImportService
 {
@@ -25,6 +27,25 @@ public class RecipeImportService
     private static readonly Regex IsoDurationRegex = new(
         @"P(?:(?<days>\d+)D)?T?(?:(?<hours>\d+)H)?(?:(?<minutes>\d+)M)?",
         RegexOptions.Compiled);
+
+    // Strip HTML tags and Vue/Alpine comments from a fragment
+    private static readonly Regex HtmlTagRegex = new(
+        @"<[^>]+>|<!--[\s\S]*?-->",
+        RegexOptions.Compiled);
+
+    private static readonly Regex WhitespaceCollapseRegex = new(
+        @"\s+",
+        RegexOptions.Compiled);
+
+    // Matches <tr> or <li> elements carrying itemprop="recipeIngredient"
+    // Backreference \1 ensures closing tag matches opening tag
+    private static readonly Regex MicrodataIngredientRegex = new(
+        @"<(tr|li)\s[^>]*itemprop=[""']recipeIngredient[""'][^>]*>([\s\S]*?)</\1>",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex MicrodataYieldRegex = new(
+        @"itemprop=[""']recipeYield[""'][^>]*>\s*([^<]+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly HttpClient _httpClient;
 
@@ -70,47 +91,78 @@ public class RecipeImportService
 
     private static Recipe? TryExtractRecipe(string html)
     {
-        foreach (Match match in JsonLdScriptRegex.Matches(html))
+        var jsonLdBlocks = CollectJsonLdBlocks(html);
+
+        // Pass 1: prefer a proper Recipe node in JSON-LD
+        foreach (var doc in jsonLdBlocks)
         {
-            var json = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
-            if (string.IsNullOrWhiteSpace(json)) continue;
-
-            JsonDocument doc;
-            try
-            {
-                doc = JsonDocument.Parse(json);
-            }
-            catch (JsonException)
-            {
-                continue;
-            }
-
             using (doc)
             {
-                var recipeElement = FindRecipeNode(doc.RootElement);
-                if (recipeElement.HasValue)
+                var node = FindNodeByType(doc.RootElement, "Recipe");
+                if (!node.HasValue) continue;
+                var recipe = MapRecipe(node.Value);
+                if (recipe is not null)
                 {
-                    var recipe = MapRecipe(recipeElement.Value);
-                    if (recipe is not null) return recipe;
+                    ApplyServingsDefault(recipe);
+                    return recipe;
                 }
+            }
+        }
+
+        // Pass 2: HowTo JSON-LD + supplement from HTML Microdata
+        // (used by sites like swissmilk.ch that split recipe data across both formats)
+        foreach (var doc in CollectJsonLdBlocks(html))
+        {
+            using (doc)
+            {
+                var node = FindNodeByType(doc.RootElement, "HowTo");
+                if (!node.HasValue) continue;
+                var recipe = MapRecipe(node.Value);
+                if (recipe is null) continue;
+
+                if (!recipe.Ingredients.Any())
+                    recipe.Ingredients = ExtractMicrodataIngredients(html);
+
+                if (recipe.Servings <= 0)
+                    recipe.Servings = ExtractMicrodataServings(html);
+
+                ApplyServingsDefault(recipe);
+                return recipe;
             }
         }
 
         return null;
     }
 
-    private static JsonElement? FindRecipeNode(JsonElement root)
+    private static List<JsonDocument> CollectJsonLdBlocks(string html)
+    {
+        var docs = new List<JsonDocument>();
+        foreach (Match match in JsonLdScriptRegex.Matches(html))
+        {
+            var json = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
+            if (string.IsNullOrWhiteSpace(json)) continue;
+            try { docs.Add(JsonDocument.Parse(json)); }
+            catch (JsonException) { }
+        }
+        return docs;
+    }
+
+    private static void ApplyServingsDefault(Recipe recipe)
+    {
+        if (recipe.Servings <= 0) recipe.Servings = 4;
+    }
+
+    private static JsonElement? FindNodeByType(JsonElement root, string schemaType)
     {
         switch (root.ValueKind)
         {
             case JsonValueKind.Object:
-                if (IsRecipeType(root)) return root;
-
+                if (IsSchemaType(root, schemaType)) return root;
                 if (root.TryGetProperty("@graph", out var graph) && graph.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var item in graph.EnumerateArray())
                     {
-                        var found = FindRecipeNode(item);
+                        var found = FindNodeByType(item, schemaType);
                         if (found.HasValue) return found;
                     }
                 }
@@ -119,7 +171,7 @@ public class RecipeImportService
             case JsonValueKind.Array:
                 foreach (var item in root.EnumerateArray())
                 {
-                    var found = FindRecipeNode(item);
+                    var found = FindNodeByType(item, schemaType);
                     if (found.HasValue) return found;
                 }
                 return null;
@@ -129,21 +181,17 @@ public class RecipeImportService
         }
     }
 
-    private static bool IsRecipeType(JsonElement obj)
+    private static bool IsSchemaType(JsonElement obj, string schemaType)
     {
         if (!obj.TryGetProperty("@type", out var typeProp)) return false;
 
         if (typeProp.ValueKind == JsonValueKind.String)
-        {
-            return string.Equals(typeProp.GetString(), "Recipe", StringComparison.OrdinalIgnoreCase);
-        }
+            return string.Equals(typeProp.GetString(), schemaType, StringComparison.OrdinalIgnoreCase);
 
         if (typeProp.ValueKind == JsonValueKind.Array)
-        {
             return typeProp.EnumerateArray()
                 .Any(t => t.ValueKind == JsonValueKind.String &&
-                          string.Equals(t.GetString(), "Recipe", StringComparison.OrdinalIgnoreCase));
-        }
+                          string.Equals(t.GetString(), schemaType, StringComparison.OrdinalIgnoreCase));
 
         return false;
     }
@@ -153,19 +201,21 @@ public class RecipeImportService
         var name = GetString(node, "name");
         if (string.IsNullOrWhiteSpace(name)) return null;
 
-        var recipe = new Recipe
+        var cookTime = ParseDurationMinutes(GetString(node, "cookTime"));
+        var totalTime = ParseDurationMinutes(GetString(node, "totalTime"));
+
+        return new Recipe
         {
             Name = name.Trim(),
             Description = GetString(node, "description")?.Trim(),
             ImageUrl = GetImageUrl(node),
-            PrepTimeMinutes = ParseIsoDurationMinutes(GetString(node, "prepTime")),
-            CookTimeMinutes = ParseIsoDurationMinutes(GetString(node, "cookTime")),
+            PrepTimeMinutes = ParseDurationMinutes(GetString(node, "prepTime")),
+            // HowTo nodes only have totalTime; Recipe nodes usually have cookTime
+            CookTimeMinutes = cookTime > 0 ? cookTime : totalTime,
             Servings = ParseServings(node),
             Instructions = GetInstructions(node),
             Ingredients = GetIngredients(node)
         };
-
-        return recipe;
     }
 
     private static string? GetString(JsonElement node, string property)
@@ -199,7 +249,7 @@ public class RecipeImportService
 
     private static int ParseServings(JsonElement node)
     {
-        if (!node.TryGetProperty("recipeYield", out var yieldEl)) return 4;
+        if (!node.TryGetProperty("recipeYield", out var yieldEl)) return 0;
 
         string? text = yieldEl.ValueKind switch
         {
@@ -209,22 +259,22 @@ public class RecipeImportService
             _ => null
         };
 
-        if (string.IsNullOrWhiteSpace(text)) return 4;
-
+        if (string.IsNullOrWhiteSpace(text)) return 0;
         var digits = Regex.Match(text, @"\d+");
-        return digits.Success && int.TryParse(digits.Value, out var n) && n > 0 ? n : 4;
+        return digits.Success && int.TryParse(digits.Value, out var n) && n > 0 ? n : 0;
     }
 
     private static string? GetInstructions(JsonElement node)
     {
-        if (!node.TryGetProperty("recipeInstructions", out var instr)) return null;
+        // Recipe uses "recipeInstructions", HowTo uses "step"
+        JsonElement instr;
+        if (!node.TryGetProperty("recipeInstructions", out instr) &&
+            !node.TryGetProperty("step", out instr))
+            return null;
 
         var steps = new List<string>();
         CollectInstructionSteps(instr, steps);
-
-        if (steps.Count == 0) return null;
-
-        return string.Join("\n", steps.Select((s, i) => $"{i + 1}. {s}"));
+        return steps.Count == 0 ? null : string.Join("\n", steps.Select((s, i) => $"{i + 1}. {s}"));
     }
 
     private static void CollectInstructionSteps(JsonElement el, List<string> steps)
@@ -238,9 +288,7 @@ public class RecipeImportService
 
             case JsonValueKind.Array:
                 foreach (var item in el.EnumerateArray())
-                {
                     CollectInstructionSteps(item, steps);
-                }
                 break;
 
             case JsonValueKind.Object:
@@ -261,11 +309,12 @@ public class RecipeImportService
     {
         var result = new List<RecipeIngredient>();
 
-        var propName = node.TryGetProperty("recipeIngredient", out var ing) ? "recipeIngredient"
-                      : node.TryGetProperty("ingredients", out ing) ? "ingredients"
-                      : null;
+        JsonElement ing;
+        if (!node.TryGetProperty("recipeIngredient", out ing) &&
+            !node.TryGetProperty("ingredients", out ing))
+            return result;
 
-        if (propName is null || ing.ValueKind != JsonValueKind.Array) return result;
+        if (ing.ValueKind != JsonValueKind.Array) return result;
 
         var sort = 0;
         foreach (var item in ing.EnumerateArray())
@@ -287,6 +336,41 @@ public class RecipeImportService
         return result;
     }
 
+    private static List<RecipeIngredient> ExtractMicrodataIngredients(string html)
+    {
+        var result = new List<RecipeIngredient>();
+        var sort = 0;
+
+        foreach (Match match in MicrodataIngredientRegex.Matches(html))
+        {
+            // Group 2 is the inner content (group 1 is the tag name tr/li)
+            var inner = match.Groups[2].Value;
+            var text = WhitespaceCollapseRegex
+                .Replace(HtmlTagRegex.Replace(inner, " "), " ")
+                .Trim();
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            var (quantity, unit, name) = ParseIngredientLine(text);
+            result.Add(new RecipeIngredient
+            {
+                Name = name,
+                Quantity = quantity,
+                Unit = unit,
+                SortOrder = sort++
+            });
+        }
+
+        return result;
+    }
+
+    private static int ExtractMicrodataServings(string html)
+    {
+        var match = MicrodataYieldRegex.Match(html);
+        if (!match.Success) return 0;
+        var digits = Regex.Match(match.Groups[1].Value.Trim(), @"\d+");
+        return digits.Success && int.TryParse(digits.Value, out var n) ? n : 0;
+    }
+
     private static readonly Regex IngredientLineRegex = new(
         @"^(?<qty>\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?)\s*(?<unit>[a-zA-ZäöüÄÖÜß.]{1,15})?\s+(?<name>.+)$",
         RegexOptions.Compiled);
@@ -294,21 +378,15 @@ public class RecipeImportService
     private static (decimal? quantity, string? unit, string name) ParseIngredientLine(string raw)
     {
         var match = IngredientLineRegex.Match(raw);
-        if (!match.Success)
-        {
-            return (null, null, raw);
-        }
+        if (!match.Success) return (null, null, raw);
 
         decimal? qty = null;
         var qtyText = match.Groups["qty"].Value.Replace(",", ".");
         if (qtyText.Contains('-') || qtyText.Contains('–'))
         {
-            // Range like "2-3" -> take the first number.
             var first = Regex.Match(qtyText, @"[\d.]+");
             if (first.Success && decimal.TryParse(first.Value, System.Globalization.CultureInfo.InvariantCulture, out var q))
-            {
                 qty = q;
-            }
         }
         else if (decimal.TryParse(qtyText, System.Globalization.CultureInfo.InvariantCulture, out var q2))
         {
@@ -321,11 +399,15 @@ public class RecipeImportService
         return (qty, string.IsNullOrWhiteSpace(unit) ? null : unit, string.IsNullOrWhiteSpace(name) ? raw : name);
     }
 
-    private static int ParseIsoDurationMinutes(string? iso)
+    private static int ParseDurationMinutes(string? value)
     {
-        if (string.IsNullOrWhiteSpace(iso)) return 0;
+        if (string.IsNullOrWhiteSpace(value)) return 0;
 
-        var match = IsoDurationRegex.Match(iso);
+        // Some sites (e.g. swissmilk HowTo) use a plain integer (minutes) instead of ISO 8601
+        if (int.TryParse(value.Trim(), out var directMinutes)) return directMinutes;
+
+        // ISO 8601: PT45M, P1DT30M, etc.
+        var match = IsoDurationRegex.Match(value);
         if (!match.Success) return 0;
 
         var days = match.Groups["days"].Success ? int.Parse(match.Groups["days"].Value) : 0;

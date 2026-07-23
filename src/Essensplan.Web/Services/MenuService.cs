@@ -22,7 +22,8 @@ public class MenuService
 
         if (mealType.HasValue)
         {
-            query = query.Where(m => m.MealType == mealType);
+            var bit = MealTypeFlags.From(mealType.Value);
+            query = query.Where(m => (m.AllowedMealTypes & bit) != 0);
         }
 
         return await query.OrderBy(m => m.Name).ToListAsync();
@@ -40,6 +41,7 @@ public class MenuService
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         menu.CreatedAt = DateTime.UtcNow;
+        if (menu.AllowedMealTypes == 0) menu.AllowedMealTypes = MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
         menu.MenuRecipes = recipeIds.Select((rid, i) => new MenuRecipe { RecipeId = rid, SortOrder = i }).ToList();
         db.Menus.Add(menu);
         await db.SaveChangesAsync();
@@ -54,7 +56,7 @@ public class MenuService
 
         existing.Name = menu.Name;
         existing.Description = menu.Description;
-        existing.MealType = menu.MealType;
+        existing.AllowedMealTypes = menu.AllowedMealTypes;
 
         db.MenuRecipes.RemoveRange(existing.MenuRecipes);
         existing.MenuRecipes = recipeIds.Select((rid, i) => new MenuRecipe { RecipeId = rid, SortOrder = i }).ToList();

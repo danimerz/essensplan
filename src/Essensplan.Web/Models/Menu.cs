@@ -13,7 +13,8 @@ public class Menu
     [StringLength(500)]
     public string? Description { get; set; }
 
-    public MealType MealType { get; set; } = MealType.Abendessen;
+    /// <summary>Bitmask of MealTypeFlags — which meal slots this menu is eligible for.</summary>
+    public int AllowedMealTypes { get; set; } = MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

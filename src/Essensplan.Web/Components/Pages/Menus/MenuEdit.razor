@@ -30,15 +30,23 @@
             <input class="input" @bind="_description" @bind:event="oninput" placeholder="Optional" />
         </div>
         <div class="field mb-0">
-            <label>Mahlzeit</label>
-            <div class="row">
+            <label>Geeignet für</label>
+            <div class="row" style="flex-wrap:wrap; gap:0.5rem;">
                 @foreach (var mt in Enum.GetValues<MealType>())
                 {
-                    <button type="button" class="chip chip-btn @(_mealType == mt ? "active" : "")" @onclick="() => _mealType = mt">
+                    var bit = MealTypeFlags.From(mt);
+                    var isChecked = (_allowedMealTypes & bit) != 0;
+                    <label class="chip chip-btn @(isChecked ? "active" : "")" style="cursor:pointer; user-select:none; gap:0.35rem;">
+                        <input type="checkbox" style="display:none;" checked="@isChecked"
+                               @onchange="e => ToggleMealType(mt, (bool)e.Value!)" />
                         @mt.ToIcon() @mt.ToGermanLabel()
-                    </button>
+                    </label>
                 }
             </div>
+            @if (_allowedMealTypes == 0)
+            {
+                <span class="hint" style="color:var(--danger);">Mindestens eine Mahlzeit auswählen.</span>
+            }
         </div>
     </div>
 
@@ -100,7 +108,7 @@
 
     private string _name = "";
     private string _description = "";
-    private MealType _mealType = MealType.Abendessen;
+    private int _allowedMealTypes = MealTypeFlags.Mittagessen | MealTypeFlags.Abendessen;
     private List<Recipe> _selectedRecipes = new();
     private string _search = "";
     private List<Recipe> _searchResults = new();
@@ -120,7 +128,7 @@
 
             _name = menu.Name;
             _description = menu.Description ?? "";
-            _mealType = menu.MealType;
+            _allowedMealTypes = menu.AllowedMealTypes;
             _selectedRecipes = menu.MenuRecipes
                 .OrderBy(mr => mr.SortOrder)
                 .Where(mr => mr.Recipe is not null)
@@ -140,6 +148,13 @@
 
         var results = await RecipeService.GetAllAsync(_search);
         _searchResults = results.Where(r => _selectedRecipes.All(s => s.Id != r.Id)).Take(8).ToList();
+    }
+
+    private void ToggleMealType(MealType mt, bool isChecked)
+    {
+        var bit = MealTypeFlags.From(mt);
+        if (isChecked) _allowedMealTypes |= bit;
+        else _allowedMealTypes &= ~bit;
     }
 
     private void Add(Recipe r)
@@ -163,12 +178,18 @@
             return;
         }
 
+        if (_allowedMealTypes == 0)
+        {
+            _error = "Bitte mindestens eine Mahlzeit auswählen.";
+            return;
+        }
+
         var menu = new Menu
         {
             Id = Id ?? 0,
             Name = _name.Trim(),
             Description = string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
-            MealType = _mealType
+            AllowedMealTypes = _allowedMealTypes
         };
 
         var recipeIds = _selectedRecipes.Select(r => r.Id).ToList();

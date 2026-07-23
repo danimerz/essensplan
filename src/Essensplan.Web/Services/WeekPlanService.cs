@@ -96,7 +96,7 @@ public class WeekPlanService
     /// Fills empty slots (or all slots when overwrite=true) of a week with randomly chosen menus,
     /// preferring menus that have not appeared in the past <see cref="RepeatAvoidanceDays"/> days.
     /// </summary>
-    public async Task<int> AutoGenerateAsync(int weekPlanId, bool overwriteExisting = false)
+    public async Task<int> AutoGenerateAsync(int weekPlanId, bool overwriteExisting = false, ISet<MealType>? slotsToFill = null)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
 
@@ -108,8 +108,6 @@ public class WeekPlanService
 
         var allMenus = await db.Menus.AsNoTracking().ToListAsync();
         if (allMenus.Count == 0) return 0;
-
-        var menusByMeal = allMenus.GroupBy(m => m.MealType).ToDictionary(g => g.Key, g => g.ToList());
 
         var recentCutoff = week.StartDate.AddDays(-RepeatAvoidanceDays);
         var futureCutoff = week.StartDate.AddDays(7 + RepeatAvoidanceDays);
@@ -127,20 +125,18 @@ public class WeekPlanService
 
         foreach (var entry in targets)
         {
-            if (!menusByMeal.TryGetValue(entry.MealType, out var candidates) || candidates.Count == 0)
-            {
-                continue;
-            }
+            // Skip slots the user didn't ask to fill
+            if (slotsToFill is not null && !slotsToFill.Contains(entry.MealType)) continue;
+
+            var bit = MealTypeFlags.From(entry.MealType);
+            var candidates = allMenus.Where(m => (m.AllowedMealTypes & bit) != 0).ToList();
+            if (candidates.Count == 0) continue;
 
             var pool = candidates.Where(m => !recentSet.Contains(m.Id) && !usedThisRun.Contains(m.Id)).ToList();
             if (pool.Count == 0)
-            {
                 pool = candidates.Where(m => !usedThisRun.Contains(m.Id)).ToList();
-            }
             if (pool.Count == 0)
-            {
                 pool = candidates;
-            }
 
             var chosen = pool[rng.Next(pool.Count)];
             entry.MenuId = chosen.Id;

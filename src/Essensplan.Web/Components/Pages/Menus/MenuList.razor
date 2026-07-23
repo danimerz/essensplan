@@ -42,7 +42,7 @@ else
         {
             <a class="card card-pad card-interactive" href="@($"/menus/{menu.Id}/bearbeiten")">
                 <div class="row-between" style="margin-bottom:0.5rem;">
-                    <span class="badge-mealtype">@menu.MealType.ToIcon() @menu.MealType.ToGermanLabel()</span>
+                    <span class="badge-mealtype">@MealTypeFlags.ToLabels(menu.AllowedMealTypes)</span>
                 </div>
                 <div class="recipe-card-title" style="margin-bottom:0.35rem;">@menu.Name</div>
                 @if (!string.IsNullOrWhiteSpace(menu.Description))
