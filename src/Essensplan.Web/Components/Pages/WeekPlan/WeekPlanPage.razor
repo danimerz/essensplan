@@ -1,5 +1,7 @@
 @page "/wochenplan"
+@attribute [Authorize]
 @page "/wochenplan/{WeekOffset:int}"
+@attribute [Authorize]
 @implements IDisposable
 @inject WeekPlanService WeekPlanService
 @inject MenuService MenuService

@@ -1,0 +1,83 @@
+@page "/konto"
+@attribute [Authorize]
+@inject UserManagementService UserMgmt
+@inject CurrentUserService CurrentUser
+
+<PageTitle>Mein Konto – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Konto</span>
+        <h1>Mein Konto</h1>
+    </div>
+</div>
+
+<div class="container-narrow">
+    <div class="card card-pad" style="margin-bottom:1.25rem;">
+        <h3>Anmeldedaten</h3>
+        <p class="muted text-sm" style="margin-bottom:0;">E-Mail: <strong>@_email</strong></p>
+    </div>
+
+    <div class="card card-pad">
+        <h3>Passwort ändern</h3>
+
+        @if (_success)
+        {
+            <div class="alert alert-success">Passwort erfolgreich geändert.</div>
+        }
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger">@_error</div>
+        }
+
+        <div class="field">
+            <label>Aktuelles Passwort</label>
+            <input class="input" type="password" @bind="_currentPw" placeholder="Aktuelles Passwort" />
+        </div>
+        <div class="field">
+            <label>Neues Passwort</label>
+            <input class="input" type="password" @bind="_newPw" placeholder="Mindestens 8 Zeichen" />
+        </div>
+        <div class="field mb-0">
+            <label>Neues Passwort bestätigen</label>
+            <input class="input" type="password" @bind="_confirmPw" placeholder="Wiederholen" />
+        </div>
+
+        <div class="row" style="justify-content:flex-end; margin-top:1.25rem;">
+            <button class="btn btn-primary" @onclick="ChangePassword">Passwort ändern</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? _email;
+    private string? _userId;
+    private string _currentPw = "";
+    private string _newPw = "";
+    private string _confirmPw = "";
+    private string? _error;
+    private bool _success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _email = await CurrentUser.GetEmailAsync();
+        _userId = await CurrentUser.GetUserIdAsync();
+    }
+
+    private async Task ChangePassword()
+    {
+        _error = null;
+        _success = false;
+
+        if (string.IsNullOrWhiteSpace(_currentPw)) { _error = "Bitte aktuelles Passwort eingeben."; return; }
+        if (string.IsNullOrWhiteSpace(_newPw) || _newPw.Length < 8) { _error = "Neues Passwort muss mindestens 8 Zeichen lang sein."; return; }
+        if (_newPw != _confirmPw) { _error = "Die Passwörter stimmen nicht überein."; return; }
+        if (_userId is null) { _error = "Benutzer nicht gefunden."; return; }
+
+        var (ok, error) = await UserMgmt.ChangePasswordAsync(_userId, _currentPw, _newPw);
+        if (!ok) { _error = error; return; }
+
+        _success = true;
+        _currentPw = _newPw = _confirmPw = "";
+    }
+}

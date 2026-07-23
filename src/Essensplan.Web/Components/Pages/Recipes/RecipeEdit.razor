@@ -1,5 +1,7 @@
 @page "/rezepte/neu"
+@attribute [Authorize]
 @page "/rezepte/{Id:int}/bearbeiten"
+@attribute [Authorize]
 @inject RecipeService RecipeService
 @inject CategoryService CategoryService
 @inject CurrentUserService CurrentUser
