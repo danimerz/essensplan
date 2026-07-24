@@ -231,11 +231,15 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Migr
     public async Task AddManualItemAsync(int householdId, string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return;
+        var trimmed = name.Trim();
+        var imageUrl = await migrosImages.GetImageAsync(trimmed);
         await using var db = await dbFactory.CreateDbContextAsync();
         db.ShoppingListItems.Add(new ShoppingListItem
         {
             HouseholdId = householdId,
-            Name = name.Trim(),
+            Name = trimmed,
+            ProductCategory = InferCategory(trimmed),
+            ImageUrl = imageUrl,
             IsManual = true,
             SortOrder = 9999
         });

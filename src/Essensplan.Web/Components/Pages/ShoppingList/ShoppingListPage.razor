@@ -49,7 +49,7 @@ else
     @if (pending.Count > 0)
     {
         var groups = pending
-            .GroupBy(i => i.IsManual ? "Manuell hinzugefügt" : (i.ProductCategory ?? "Sonstiges"))
+            .GroupBy(i => i.ProductCategory ?? "Sonstiges")
             .OrderBy(g => CategoryOrder.GetValueOrDefault(g.Key, 99));
 
         @foreach (var group in groups)
@@ -66,10 +66,16 @@ else
                         else
                         {
                             <div class="shopping-cat-icon" style="background:@GetCategoryColor(item.ProductCategory)">
-                                @GetCategoryEmoji(item.IsManual ? null : item.ProductCategory)
+                                @GetCategoryEmoji(item.ProductCategory)
                             </div>
                         }
-                        <span class="shopping-label">@item.Name</span>
+                        <span class="shopping-label">
+                            @item.Name
+                            @if (item.IsManual)
+                            {
+                                <span class="shopping-manual-badge">✏️</span>
+                            }
+                        </span>
                         <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
                                 @onclick:stopPropagation="true"
                                 @onclick="() => Delete(item)">✕</button>
@@ -160,7 +166,6 @@ else
         ["Süsses & Backzutaten"] = 8,
         ["Tiefkühlprodukte"] = 9,
         ["Sonstiges"] = 10,
-        ["Manuell hinzugefügt"] = 11,
     };
 
     private List<ShoppingListItem>? _items;
