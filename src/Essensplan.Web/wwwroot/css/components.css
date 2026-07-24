@@ -471,9 +471,10 @@ a.card:hover .media-veil { opacity: 1; }
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
   flex-shrink: 0;
-  background: var(--surface-raised);
+  background: #fff;
+  padding: 2px;
 }
 
 .shopping-product-initial {
