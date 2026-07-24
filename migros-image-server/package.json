@@ -1,0 +1,15 @@
+{
+  "name": "migros-image-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Local image lookup sidecar for Essensplan, using the Migros product search API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "migros-api-wrapper": "latest"
+  }
+}

@@ -65,7 +65,12 @@ builder.Services.AddHttpClient<RecipeImportService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
-
+var migrosPort = builder.Configuration["MigrosImageServer:Port"] ?? "3001";
+builder.Services.AddHttpClient<MigrosImageService>(client =>
+{
+    client.BaseAddress = new Uri($"http://localhost:{migrosPort}");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 var app = builder.Build();
 

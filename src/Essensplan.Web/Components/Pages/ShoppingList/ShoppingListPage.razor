@@ -59,9 +59,16 @@ else
                 @foreach (var item in group.OrderBy(i => i.Name))
                 {
                     <div class="shopping-item" @onclick="() => Toggle(item)">
-                        <div class="shopping-cat-icon" style="background:@GetCategoryColor(item.ProductCategory)">
-                            @GetCategoryEmoji(item.IsManual ? null : item.ProductCategory)
-                        </div>
+                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" class="shopping-product-img" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="shopping-cat-icon" style="background:@GetCategoryColor(item.ProductCategory)">
+                                @GetCategoryEmoji(item.IsManual ? null : item.ProductCategory)
+                            </div>
+                        }
                         <span class="shopping-label">@item.Name</span>
                         <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
                                 @onclick:stopPropagation="true"
