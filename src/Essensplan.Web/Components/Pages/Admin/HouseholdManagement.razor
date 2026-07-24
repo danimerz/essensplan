@@ -1,0 +1,375 @@
+@page "/admin/haushalte"
+@attribute [Authorize]
+@inject UserManagementService UserMgmt
+@inject CurrentUserService CurrentUser
+
+<PageTitle>Haushalte – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Administration</span>
+        <h1>Haushalte</h1>
+        <p class="lead">Alle Haushalte verwalten und neue anlegen.</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" @onclick="OpenCreate">+ Neuer Haushalt</button>
+    </div>
+</div>
+
+@if (!_isSuperAdmin)
+{
+    <div class="alert alert-danger">Du hast keine Berechtigung für diese Seite.</div>
+}
+else
+{
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (_success is not null)
+    {
+        <div class="alert alert-success">@_success</div>
+    }
+
+    @if (_households is null)
+    {
+        <span class="spinner"></span>
+    }
+    else
+    {
+        <div class="stack" style="gap:0.75rem;">
+            @foreach (var h in _households)
+            {
+                <div class="card" style="overflow:hidden;">
+                    <div class="card-pad row-between" style="flex-wrap:wrap; gap:0.75rem;">
+                        <div>
+                            @if (_editingId == h.Id)
+                            {
+                                <div class="row" style="gap:0.5rem; align-items:center;">
+                                    <input class="input" style="max-width:260px;" @bind="_editName" @bind:event="oninput" />
+                                    <LoadingButton CssClass="btn btn-primary btn-sm" OnClick="() => SaveEdit(h.Id)">Speichern</LoadingButton>
+                                    <button class="btn btn-ghost btn-sm" @onclick="CancelEdit">Abbrechen</button>
+                                </div>
+                                @if (_editError is not null)
+                                {
+                                    <div class="text-sm" style="color:var(--danger); margin-top:0.3rem;">@_editError</div>
+                                }
+                            }
+                            else
+                            {
+                                <div style="font-weight:700;">@h.Name</div>
+                                <div class="text-sm muted">Erstellt: @h.CreatedAt.ToLocalTime().ToString("d. MMMM yyyy")</div>
+                            }
+                            <div class="row" style="gap:0.4rem; margin-top:0.35rem;">
+                                <span class="chip">@h.MemberCount Mitglied@(h.MemberCount == 1 ? "" : "er")</span>
+                            </div>
+                        </div>
+                        @if (_editingId != h.Id)
+                        {
+                            <div class="row" style="gap:0.4rem;">
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ToggleMembers(h.Id)">
+                                    @(_expandedId == h.Id ? "▲ Mitglieder" : "▼ Mitglieder")
+                                </button>
+                                <button class="btn btn-ghost btn-sm" @onclick="() => StartEdit(h.Id, h.Name)">Umbenennen</button>
+                                <button class="btn btn-ghost btn-sm" style="color:var(--danger);"
+                                        @onclick="() => ConfirmDelete(h.Id, h.Name, h.MemberCount)">Löschen</button>
+                            </div>
+                        }
+                    </div>
+
+                    @if (_expandedId == h.Id)
+                    {
+                        <div style="border-top:1px solid var(--border); padding:1rem 1.25rem;">
+                            @if (_expandedMembers is null)
+                            {
+                                <span class="spinner"></span>
+                            }
+                            else if (_expandedMembers.Count == 0)
+                            {
+                                <p class="muted text-sm mb-0">Noch keine Mitglieder.</p>
+                            }
+                            else
+                            {
+                                <div class="stack" style="gap:0.5rem; margin-bottom:0.75rem;">
+                                    @foreach (var m in _expandedMembers)
+                                    {
+                                        <div class="row-between" style="flex-wrap:wrap; gap:0.5rem;">
+                                            <div>
+                                                <span style="font-weight:600;">@(string.IsNullOrWhiteSpace(m.DisplayName) ? m.Email : m.DisplayName)</span>
+                                                <span class="text-sm muted" style="margin-left:0.4rem;">@m.Email</span>
+                                                <span class="chip @(m.Role == HouseholdRole.Admin ? "chip-outline" : "")" style="margin-left:0.4rem;">
+                                                    @(m.Role == HouseholdRole.Admin ? "Admin" : "Mitglied")
+                                                </span>
+                                                @if (!m.IsActive)
+                                                {
+                                                    <span class="chip" style="background:var(--danger-soft); color:var(--danger); margin-left:0.3rem;">Inaktiv</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (_showInviteFor == h.Id)
+                            {
+                                <div style="border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.5rem;">
+                                    <div class="row" style="gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+                                        <div class="field mb-0" style="flex:1; min-width:180px;">
+                                            <label class="text-sm">E-Mail</label>
+                                            <input class="input" type="email" @bind="_inviteEmail" placeholder="name@beispiel.ch" />
+                                        </div>
+                                        <div class="field mb-0" style="flex:1; min-width:140px;">
+                                            <label class="text-sm">Anzeigename</label>
+                                            <input class="input" @bind="_inviteName" placeholder="z. B. Dani" />
+                                        </div>
+                                        <div class="field mb-0" style="flex:1; min-width:160px;">
+                                            <label class="text-sm">Initiales Passwort</label>
+                                            <input class="input" type="password" @bind="_invitePassword" placeholder="Mind. 8 Zeichen" />
+                                        </div>
+                                        <div class="field mb-0" style="min-width:120px;">
+                                            <label class="text-sm">Rolle</label>
+                                            <select class="input" @bind="_inviteRole">
+                                                <option value="0">Mitglied</option>
+                                                <option value="1">Admin</option>
+                                            </select>
+                                        </div>
+                                        <div class="row mb-0" style="gap:0.4rem;">
+                                            <LoadingButton CssClass="btn btn-primary btn-sm" OnClick="() => InviteUser(h.Id)">Einladen</LoadingButton>
+                                            <button class="btn btn-ghost btn-sm" @onclick="CancelInvite">Abbrechen</button>
+                                        </div>
+                                    </div>
+                                    @if (_inviteError is not null)
+                                    {
+                                        <div class="text-sm" style="color:var(--danger); margin-top:0.4rem;">@_inviteError</div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" style="margin-top:0.25rem;" @onclick="() => OpenInvite(h.Id)">+ Benutzer einladen</button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@if (_showCreate)
+{
+    <div class="modal-backdrop" @onclick="() => _showCreate = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="mb-0">Neuer Haushalt</h3>
+                <button class="btn btn-ghost btn-icon btn-sm" @onclick="() => _showCreate = false">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input class="form-control" @bind="_createName" placeholder="z. B. Familie Müller" />
+            </div>
+
+            @if (_createError is not null)
+            {
+                <div class="alert alert-error">@_createError</div>
+            }
+
+            <div class="row" style="justify-content:flex-end; margin-top:1rem;">
+                <button class="btn btn-ghost" @onclick="() => _showCreate = false">Abbrechen</button>
+                <LoadingButton OnClick="CreateHousehold">Anlegen</LoadingButton>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_deleteId > 0)
+{
+    <div class="modal-backdrop" @onclick="CancelDelete">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="mb-0" style="color:var(--danger);">Haushalt löschen</h3>
+                <button class="btn btn-ghost btn-icon btn-sm" @onclick="CancelDelete">✕</button>
+            </div>
+
+            <p>Willst du <strong>@_deleteName</strong> wirklich löschen?</p>
+            @if (_deleteMemberCount > 0)
+            {
+                <div class="alert alert-danger" style="margin-bottom:0.75rem;">
+                    Achtung: Dabei werden <strong>@_deleteMemberCount Mitglied@(_deleteMemberCount == 1 ? "" : "er")</strong>
+                    sowie alle Rezepte, Menüs und Wochenpläne dieses Haushalts unwiderruflich gelöscht.
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-danger" style="margin-bottom:0.75rem;">
+                    Achtung: Alle Rezepte, Menüs und Wochenpläne dieses Haushalts werden unwiderruflich gelöscht.
+                </div>
+            }
+
+            <div class="row" style="justify-content:flex-end; margin-top:1rem;">
+                <button class="btn btn-ghost" @onclick="CancelDelete">Abbrechen</button>
+                <LoadingButton Style="background:var(--danger); border-color:var(--danger);" OnClick="ExecuteDelete">Endgültig löschen</LoadingButton>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<HouseholdDto>? _households;
+    private bool _isSuperAdmin;
+    private string? _error;
+    private string? _success;
+
+    private bool _showCreate;
+    private string _createName = "";
+    private string? _createError;
+
+    private int _editingId;
+    private string _editName = "";
+    private string? _editError;
+
+    private int _deleteId;
+    private string _deleteName = "";
+    private int _deleteMemberCount;
+
+    private int _expandedId;
+    private List<HouseholdMemberDto>? _expandedMembers;
+
+    private int _showInviteFor;
+    private string _inviteEmail = "";
+    private string _inviteName = "";
+    private string _invitePassword = "";
+    private int _inviteRole;
+    private string? _inviteError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isSuperAdmin = await CurrentUser.IsSuperAdminAsync();
+        if (_isSuperAdmin)
+            await LoadHouseholds();
+    }
+
+    private void OpenCreate()
+    {
+        _showCreate = true;
+        _createName = "";
+        _createError = null;
+        _success = null;
+    }
+
+    private async Task LoadHouseholds()
+    {
+        _households = await UserMgmt.GetAllHouseholdsAsync();
+    }
+
+    private void StartEdit(int id, string name)
+    {
+        _editingId = id;
+        _editName = name;
+        _editError = null;
+        _success = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = 0;
+        _editName = "";
+        _editError = null;
+    }
+
+    private async Task SaveEdit(int id)
+    {
+        _editError = null;
+        var (ok, error) = await UserMgmt.UpdateHouseholdNameAsync(id, _editName);
+        if (!ok) { _editError = error; return; }
+        _editingId = 0;
+        _success = "Haushalt umbenannt.";
+        await LoadHouseholds();
+    }
+
+    private async Task CreateHousehold()
+    {
+        _createError = null;
+        var (ok, error) = await UserMgmt.CreateHouseholdAsync(_createName);
+        if (!ok) { _createError = error; return; }
+        _showCreate = false;
+        _success = $"Haushalt \"{_createName}\" wurde angelegt.";
+        _createName = "";
+        await LoadHouseholds();
+    }
+
+    private void ConfirmDelete(int id, string name, int memberCount)
+    {
+        _deleteId = id;
+        _deleteName = name;
+        _deleteMemberCount = memberCount;
+        _success = null;
+        _error = null;
+    }
+
+    private void CancelDelete()
+    {
+        _deleteId = 0;
+        _deleteName = "";
+        _deleteMemberCount = 0;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        var (ok, error) = await UserMgmt.DeleteHouseholdAsync(_deleteId);
+        if (!ok) { _error = error; CancelDelete(); return; }
+        _success = $"Haushalt \"{_deleteName}\" wurde gelöscht.";
+        if (_expandedId == _deleteId) _expandedId = 0;
+        CancelDelete();
+        await LoadHouseholds();
+    }
+
+    private async Task ToggleMembers(int householdId)
+    {
+        if (_expandedId == householdId)
+        {
+            _expandedId = 0;
+            _expandedMembers = null;
+            CancelInvite();
+            return;
+        }
+        _expandedId = householdId;
+        _expandedMembers = null;
+        CancelInvite();
+        _expandedMembers = await UserMgmt.GetMembersAsync(householdId);
+    }
+
+    private void OpenInvite(int householdId)
+    {
+        _showInviteFor = householdId;
+        _inviteEmail = _inviteName = _invitePassword = "";
+        _inviteRole = 0;
+        _inviteError = null;
+    }
+
+    private void CancelInvite()
+    {
+        _showInviteFor = 0;
+        _inviteEmail = _inviteName = _invitePassword = "";
+        _inviteError = null;
+    }
+
+    private async Task InviteUser(int householdId)
+    {
+        _inviteError = null;
+        if (string.IsNullOrWhiteSpace(_inviteEmail)) { _inviteError = "E-Mail ist erforderlich."; return; }
+        if (string.IsNullOrWhiteSpace(_invitePassword)) { _inviteError = "Passwort ist erforderlich."; return; }
+
+        var (ok, error) = await UserMgmt.InviteUserAsync(
+            householdId, _inviteEmail, _inviteName,
+            (HouseholdRole)_inviteRole, _invitePassword);
+
+        if (!ok) { _inviteError = error; return; }
+
+        CancelInvite();
+        _success = $"Benutzer wurde eingeladen.";
+        _expandedMembers = await UserMgmt.GetMembersAsync(householdId);
+        await LoadHouseholds();
+    }
+}

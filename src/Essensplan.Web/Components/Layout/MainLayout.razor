@@ -16,7 +16,13 @@
         <div class="sidebar-footer">
             <ThemeToggle />
             <div class="user-chip">
-                <a href="/konto" class="muted text-sm" style="text-decoration:none;">@_email</a>
+                <div>
+                    @if (_householdName is not null)
+                    {
+                        <div class="text-sm muted" style="margin-bottom:0.1rem;">🏠 @_householdName</div>
+                    }
+                    <a href="/konto" class="muted text-sm" style="text-decoration:none;">@_email</a>
+                </div>
                 <a class="btn btn-ghost btn-sm" href="/abmelden">Abmelden</a>
             </div>
         </div>
@@ -50,9 +56,11 @@
 
 @code {
     private string? _email;
+    private string? _householdName;
 
     protected override async Task OnInitializedAsync()
     {
         _email = await CurrentUser.GetEmailAsync();
+        _householdName = await CurrentUser.GetHouseholdNameAsync();
     }
 }

@@ -102,6 +102,10 @@ a.card:hover, .card.card-interactive:hover {
   transform: translateY(-2px);
   border-color: var(--border-strong);
 }
+.menu-empty-warning {
+  border-color: var(--danger) !important;
+  border-width: 1.5px;
+}
 
 /* Recipe card */
 .recipe-card { overflow: hidden; display: flex; flex-direction: column; }
@@ -411,6 +415,132 @@ a.card:hover .media-veil { opacity: 1; }
 }
 .theme-toggle[data-active="dark"] .thumb { transform: translateX(30px); }
 .theme-toggle .icon.active { color: var(--primary); }
+
+/* ==========================================================================
+   Shopping list
+   ========================================================================== */
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease);
+  user-select: none;
+}
+.shopping-item:last-child { border-bottom: none; }
+.shopping-item:hover { background: var(--surface-hover); }
+
+.shopping-checkbox {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.shopping-item-done .shopping-checkbox { color: var(--accent); }
+
+.shopping-label {
+  flex: 1;
+  font-size: 1rem;
+}
+.shopping-qty {
+  font-weight: 600;
+  margin-right: 0.35rem;
+  color: var(--text-muted);
+}
+
+.shopping-delete {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+  flex-shrink: 0;
+}
+.shopping-item:hover .shopping-delete { opacity: 1; }
+@media (hover: none) { .shopping-delete { opacity: 1; } }
+
+.shopping-cat-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 1rem 0 0.3rem;
+}
+
+.shopping-product-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+}
+
+.shopping-product-initial {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Recipe timer chip + widget
+   ========================================================================== */
+
+.timer-chip {
+  display: inline;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.45em;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease);
+}
+.timer-chip:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.recipe-timer-widget {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 200;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  min-width: 185px;
+}
+@media (max-width: 768px) {
+  .recipe-timer-widget {
+    bottom: calc(var(--bottomnav-height) + 0.75rem);
+    right: 0.75rem;
+  }
+}
+
+.recipe-timer-display {
+  font-size: 2.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+.recipe-timer-display.finished {
+  color: var(--accent);
+}
 
 /* ==========================================================================
    Week plan grid

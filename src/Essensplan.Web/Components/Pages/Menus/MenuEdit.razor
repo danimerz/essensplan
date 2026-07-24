@@ -95,7 +95,7 @@
 
     <div class="row" style="justify-content:flex-end;">
         <a class="btn btn-ghost" href="/menus">Abbrechen</a>
-        <button class="btn btn-primary" @onclick="Save">@(IsEditMode ? "Speichern" : "Menü anlegen")</button>
+        <LoadingButton OnClick="Save">@(IsEditMode ? "Speichern" : "Menü anlegen")</LoadingButton>
     </div>
 </div>
 

@@ -1,0 +1,38 @@
+@*
+  Zwei Verwendungsmuster:
+  1. Self-managing (@onclick-Buttons): <LoadingButton OnClick="Save">Speichern</LoadingButton>
+  2. Extern gesteuert (submit in EditForm): <LoadingButton Type="submit" IsLoading="@_saving">Speichern</LoadingButton>
+*@
+
+<button class="@CssClass" type="@Type" style="@Style"
+        disabled="@(IsLoading || _busy)"
+        @onclick="HandleClick">
+    @if (IsLoading || _busy)
+    {
+        <span class="spinner" style="width:1em;height:1em;border-width:2px;margin-right:0.4em;vertical-align:middle;"></span>
+        <span>Bitte warten…</span>
+    }
+    else
+    {
+        @ChildContent
+    }
+</button>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string CssClass { get; set; } = "btn btn-primary";
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool _busy;
+
+    private async Task HandleClick()
+    {
+        if (_busy || IsLoading || !OnClick.HasDelegate) return;
+        _busy = true;
+        try { await OnClick.InvokeAsync(); }
+        finally { _busy = false; }
+    }
+}

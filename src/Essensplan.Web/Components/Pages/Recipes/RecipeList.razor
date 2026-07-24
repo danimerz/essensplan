@@ -64,6 +64,10 @@ else
                         <div class="placeholder">@(recipe.Category?.Icon ?? "🍽️")</div>
                     }
                     <div class="media-veil"></div>
+                    @if (_sharedIds.Contains(recipe.Id))
+                    {
+                        <span class="chip" style="position:absolute; top:0.5rem; right:0.5rem; background:rgba(0,0,0,0.55); color:#fff; font-size:0.7rem;">🔗 Geteilt</span>
+                    }
                 </div>
                 <div class="recipe-card-body">
                     @if (recipe.Category is not null)
@@ -88,6 +92,7 @@ else
 
 @code {
     private List<Recipe>? _recipes;
+    private HashSet<int> _sharedIds = new();
     private List<RecipeCategory> _categories = new();
     private string _search = "";
     private int? _categoryId;
@@ -104,6 +109,7 @@ else
     private async Task LoadRecipes()
     {
         _recipes = await RecipeService.GetAllAsync(_householdId, _search, _categoryId);
+        _sharedIds = await RecipeService.GetSharedRecipeIdsAsync(_householdId);
     }
 
     private async Task OnSearchChanged(ChangeEventArgs e)

@@ -1,0 +1,226 @@
+@page "/einkaufsliste"
+@attribute [Authorize]
+@inject ShoppingListService ShoppingListService
+@inject CurrentUserService CurrentUser
+@inject IJSRuntime JS
+
+<PageTitle>Einkaufsliste – Essensplan</PageTitle>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Planung</span>
+        <h1>Einkaufsliste</h1>
+    </div>
+    <div class="page-actions">
+        <LoadingButton CssClass="btn btn-secondary btn-sm" OnClick="CopyToClipboard">📋 Kopieren</LoadingButton>
+        <LoadingButton OnClick="Generate">Aus Wochenplan</LoadingButton>
+    </div>
+</div>
+
+@* Week selector *@
+<div class="row" style="align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
+    <button class="btn btn-ghost btn-sm" @onclick="PrevWeek">‹</button>
+    <span style="font-weight:600; min-width:110px; text-align:center;">KW @_kw (@_weekStart.ToString("d. MMM") – @_weekStart.AddDays(6).ToString("d. MMM"))</span>
+    <button class="btn btn-ghost btn-sm" @onclick="NextWeek">›</button>
+</div>
+
+@if (_copied)
+{
+    <div class="alert alert-success" style="margin-bottom:1rem;">✅ Text in die Zwischenablage kopiert.</div>
+}
+
+@if (_items is null)
+{
+    <span class="spinner"></span>
+}
+else if (_items.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <h3>Noch nichts auf der Liste</h3>
+        <p>Klicke auf «Aus Wochenplan» um die Zutaten der aktuellen Woche automatisch zu laden, oder füge Einträge manuell hinzu.</p>
+    </div>
+}
+else
+{
+    var pending = _items.Where(i => !i.IsDone).ToList();
+    var done = _items.Where(i => i.IsDone).ToList();
+
+    @if (pending.Count > 0)
+    {
+        var groups = pending
+            .GroupBy(i => i.IsManual ? "Manuell hinzugefügt" : (i.ProductCategory ?? "Sonstiges"))
+            .OrderBy(g => CategoryOrder.GetValueOrDefault(g.Key, 99));
+
+        @foreach (var group in groups)
+        {
+            <div class="shopping-cat-header">@group.Key</div>
+            <div class="card" style="margin-bottom:0.75rem; overflow:hidden;">
+                @foreach (var item in group.OrderBy(i => i.Name))
+                {
+                    <div class="shopping-item" @onclick="() => Toggle(item)">
+                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" class="shopping-product-img" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="shopping-product-initial">@(char.ToUpper(item.Name[0]))</div>
+                        }
+                        <span class="shopping-label">@item.Name</span>
+                        <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
+                                @onclick:stopPropagation="true"
+                                @onclick="() => Delete(item)">✕</button>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @if (done.Count > 0)
+    {
+        <div style="margin-bottom:0.5rem; margin-top:1rem;">
+            <div class="row-between" style="margin-bottom:0.5rem;">
+                <span class="text-sm muted">Erledigt (@done.Count)</span>
+                <button class="btn btn-ghost btn-sm" @onclick="ClearDone">Erledigte löschen</button>
+            </div>
+            <div class="card" style="overflow:hidden; opacity:0.65;">
+                @foreach (var item in done)
+                {
+                    <div class="shopping-item shopping-item-done" @onclick="() => Toggle(item)">
+                        <span class="shopping-checkbox">☑</span>
+                        <span class="shopping-label" style="text-decoration:line-through;">@item.Name</span>
+                        <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
+                                @onclick:stopPropagation="true"
+                                @onclick="() => Delete(item)">✕</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@* Manual add *@
+<div class="card card-pad" style="margin-top:1.25rem;">
+    <div class="row" style="gap:0.5rem;">
+        <input class="input" style="flex:1;" placeholder="Manuell hinzufügen… (z. B. Küchenpapier)"
+               @bind="_manualInput" @bind:event="oninput"
+               @onkeydown="OnManualKeyDown" />
+        <LoadingButton OnClick="AddManual">+ Hinzufügen</LoadingButton>
+    </div>
+</div>
+
+@if (_items is not null && _items.Count > 0)
+{
+    <div class="row" style="justify-content:flex-end; margin-top:1rem;">
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);" @onclick="ClearAll">Alles löschen</button>
+    </div>
+}
+
+@code {
+    private static readonly Dictionary<string, int> CategoryOrder = new()
+    {
+        ["Gemüse & Früchte"] = 1,
+        ["Fleisch & Fisch"] = 2,
+        ["Milch & Milchprodukte"] = 3,
+        ["Brot & Backwaren"] = 4,
+        ["Pasta, Reis & Körner"] = 5,
+        ["Gewürze & Öle"] = 6,
+        ["Getränke"] = 7,
+        ["Süsses & Backzutaten"] = 8,
+        ["Tiefkühlprodukte"] = 9,
+        ["Sonstiges"] = 10,
+        ["Manuell hinzugefügt"] = 11,
+    };
+
+    private List<ShoppingListItem>? _items;
+    private int _householdId;
+    private DateOnly _weekStart;
+    private int _kw;
+    private string _manualInput = "";
+    private bool _copied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
+        _weekStart = GetMonday(DateOnly.FromDateTime(DateTime.Today));
+        _kw = System.Globalization.ISOWeek.GetWeekOfYear(_weekStart.ToDateTime(TimeOnly.MinValue));
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _items = await ShoppingListService.GetItemsAsync(_householdId);
+    }
+
+    private async Task Generate()
+    {
+        await ShoppingListService.GenerateFromWeekPlanAsync(_householdId, _weekStart);
+        await Load();
+    }
+
+    private async Task Toggle(ShoppingListItem item)
+    {
+        await ShoppingListService.ToggleDoneAsync(item.Id);
+        await Load();
+    }
+
+    private async Task Delete(ShoppingListItem item)
+    {
+        await ShoppingListService.DeleteItemAsync(item.Id);
+        await Load();
+    }
+
+    private async Task AddManual()
+    {
+        if (string.IsNullOrWhiteSpace(_manualInput)) return;
+        await ShoppingListService.AddManualItemAsync(_householdId, _manualInput);
+        _manualInput = "";
+        await Load();
+    }
+
+    private async Task OnManualKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddManual();
+    }
+
+    private async Task ClearDone()
+    {
+        await ShoppingListService.ClearDoneAsync(_householdId);
+        await Load();
+    }
+
+    private async Task ClearAll()
+    {
+        await ShoppingListService.ClearAllAsync(_householdId);
+        await Load();
+    }
+
+    private async Task CopyToClipboard()
+    {
+        if (_items is null || _items.Count == 0) return;
+        var text = ShoppingListService.BuildCopyText(_items, _weekStart);
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        _copied = true;
+        await Task.Delay(2500);
+        _copied = false;
+    }
+
+    private void PrevWeek()
+    {
+        _weekStart = _weekStart.AddDays(-7);
+        _kw = System.Globalization.ISOWeek.GetWeekOfYear(_weekStart.ToDateTime(TimeOnly.MinValue));
+    }
+
+    private void NextWeek()
+    {
+        _weekStart = _weekStart.AddDays(7);
+        _kw = System.Globalization.ISOWeek.GetWeekOfYear(_weekStart.ToDateTime(TimeOnly.MinValue));
+    }
+
+    private static DateOnly GetMonday(DateOnly date)
+    {
+        var diff = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+        return date.AddDays(-diff);
+    }
+}

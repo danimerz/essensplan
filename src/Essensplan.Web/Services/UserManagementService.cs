@@ -13,6 +13,8 @@ public record HouseholdMemberDto(
     bool IsActive,
     DateTime JoinedAt);
 
+public record HouseholdDto(int Id, string Name, DateTime CreatedAt, int MemberCount);
+
 public class UserManagementService
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
@@ -120,6 +122,51 @@ public class UserManagementService
         db.HouseholdMemberships.Remove(membership);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<HouseholdDto>> GetAllHouseholdsAsync()
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        return await db.Households
+            .OrderBy(h => h.Name)
+            .Select(h => new HouseholdDto(
+                h.Id,
+                h.Name,
+                h.CreatedAt,
+                h.Memberships.Count))
+            .ToListAsync();
+    }
+
+    public async Task<(bool Success, string Error)> CreateHouseholdAsync(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return (false, "Name ist erforderlich.");
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        db.Households.Add(new Household { Name = name.Trim(), CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        return (true, string.Empty);
+    }
+
+    public async Task<(bool Success, string Error)> UpdateHouseholdNameAsync(int householdId, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return (false, "Name ist erforderlich.");
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var household = await db.Households.FindAsync(householdId);
+        if (household is null) return (false, "Haushalt nicht gefunden.");
+        household.Name = name.Trim();
+        await db.SaveChangesAsync();
+        return (true, string.Empty);
+    }
+
+    public async Task<(bool Success, string Error)> DeleteHouseholdAsync(int householdId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var total = await db.Households.CountAsync();
+        if (total <= 1) return (false, "Der letzte Haushalt kann nicht gelöscht werden.");
+        var household = await db.Households.FindAsync(householdId);
+        if (household is null) return (false, "Haushalt nicht gefunden.");
+        db.Households.Remove(household);
+        await db.SaveChangesAsync();
+        return (true, string.Empty);
     }
 
     public async Task<(bool Success, string Error)> ChangePasswordAsync(string userId, string currentPassword, string newPassword)

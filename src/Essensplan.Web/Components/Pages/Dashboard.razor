@@ -65,8 +65,8 @@ else
 </div>
 
 @code {
-    private readonly System.Globalization.CultureInfo _culture = new("de-DE");
-    private DateOnly _today;
+    private readonly System.Globalization.CultureInfo _culture = new("de-CH");
+    private DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
     private List<WeekPlanEntry>? _todayEntries;
     private int _recipeCount;
     private int _menuCount;

@@ -55,6 +55,7 @@ builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<MenuService>();
 builder.Services.AddScoped<WeekPlanService>();
 builder.Services.AddScoped<RecipeRatingService>();
+builder.Services.AddScoped<ShoppingListService>();
 builder.Services.AddScoped<UserManagementService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddSingleton<WeekPlanChangeNotifier>();
@@ -62,6 +63,12 @@ builder.Services.AddSingleton<WeekPlanChangeNotifier>();
 builder.Services.AddHttpClient<RecipeImportService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
+});
+
+builder.Services.AddHttpClient<OpenFoodFactsService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Essensplan/1.0 (https://github.com/danielmerz/essensplan)");
 });
 
 var app = builder.Build();

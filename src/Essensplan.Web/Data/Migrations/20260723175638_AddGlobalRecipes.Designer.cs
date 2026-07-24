@@ -4,6 +4,7 @@ using Essensplan.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Essensplan.Web.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723175638_AddGlobalRecipes")]
+    partial class AddGlobalRecipes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -447,43 +450,6 @@ namespace Essensplan.Web.Data.Migrations
                     b.ToTable("RecipeRatings");
                 });
 
-            modelBuilder.Entity("Essensplan.Web.Models.ShoppingListItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("HouseholdId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDone")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsManual")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<decimal?>("Quantity")
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Unit")
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("HouseholdId", "IsDone");
-
-                    b.ToTable("ShoppingListItems");
-                });
-
             modelBuilder.Entity("Essensplan.Web.Models.WeekPlan", b =>
                 {
                     b.Property<int>("Id")
@@ -783,17 +749,6 @@ namespace Essensplan.Web.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Essensplan.Web.Models.ShoppingListItem", b =>
-                {
-                    b.HasOne("Essensplan.Web.Models.Household", "Household")
-                        .WithMany("ShoppingListItems")
-                        .HasForeignKey("HouseholdId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Household");
-                });
-
             modelBuilder.Entity("Essensplan.Web.Models.WeekPlan", b =>
                 {
                     b.HasOne("Essensplan.Web.Models.Household", "Household")
@@ -888,8 +843,6 @@ namespace Essensplan.Web.Data.Migrations
                     b.Navigation("Memberships");
 
                     b.Navigation("Menus");
-
-                    b.Navigation("ShoppingListItems");
 
                     b.Navigation("WeekPlans");
                 });

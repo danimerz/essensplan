@@ -1,0 +1,120 @@
+@implements IDisposable
+
+@if (_active)
+{
+    <div class="recipe-timer-widget">
+        <div class="text-sm muted" style="margin-bottom:0.2rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">⏱ @_label</div>
+        <div class="recipe-timer-display @(_finished ? "finished" : "")">
+            @FormatTime(_remaining)
+        </div>
+        @if (_finished)
+        {
+            <div style="color:var(--accent); font-weight:600; font-size:0.82rem; margin-top:0.15rem;">⏰ Zeit abgelaufen!</div>
+        }
+        <div class="row" style="gap:0.4rem; margin-top:0.75rem;">
+            @if (_finished)
+            {
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="Restart">↺ Nochmal</button>
+            }
+            else if (_running)
+            {
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="Pause">⏸ Pause</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-primary btn-sm" @onclick="StartCountdown">▶ Start</button>
+            }
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">✕</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _active;
+    private bool _running;
+    private bool _finished;
+    private int _remaining;
+    private int _initial;
+    private string _label = "";
+    private CancellationTokenSource? _cts;
+
+    public async Task SetTimer(int seconds, string label)
+    {
+        _cts?.Cancel();
+        _cts = null;
+        _initial = seconds;
+        _remaining = seconds;
+        _label = label;
+        _active = true;
+        _running = false;
+        _finished = false;
+        await InvokeAsync(StateHasChanged);
+        await StartCountdown();
+    }
+
+    private async Task StartCountdown()
+    {
+        if (_remaining <= 0 || _running) return;
+        _running = true;
+        _finished = false;
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+        _ = RunLoopAsync(token);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (_remaining > 0 && await timer.WaitForNextTickAsync(token))
+            {
+                _remaining--;
+                if (_remaining == 0)
+                {
+                    _finished = true;
+                    _running = false;
+                }
+                await InvokeAsync(StateHasChanged);
+                if (_finished) break;
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void Pause()
+    {
+        _cts?.Cancel();
+        _cts = null;
+        _running = false;
+    }
+
+    private async Task Restart()
+    {
+        _remaining = _initial;
+        _finished = false;
+        await StartCountdown();
+    }
+
+    private void Close()
+    {
+        _cts?.Cancel();
+        _active = false;
+        _running = false;
+    }
+
+    private static string FormatTime(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

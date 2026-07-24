@@ -17,13 +17,80 @@
 </div>
 
 <div class="container-narrow">
+
+    @* Shared-recipe notice in edit mode *@
+    @if (IsEditMode && _shareCount > 1)
+    {
+        <div class="alert" style="background:color-mix(in srgb, var(--accent) 10%, transparent); border:1px solid var(--accent); margin-bottom:1.25rem;">
+            ℹ️ Dieses Rezept wird von <strong>@(_shareCount - 1) weiteren Haushalt@(_shareCount == 2 ? "" : "en")</strong> verwendet.
+            Beim Speichern wird automatisch eine Kopie für deinen Haushalt erstellt.
+        </div>
+    }
+
     <EditForm Model="_model" OnValidSubmit="Save">
         <DataAnnotationsValidator />
 
         <div class="card card-pad" style="margin-bottom:1.25rem;">
             <div class="field">
                 <label>Name</label>
-                <InputText class="input" @bind-Value="_model.Name" placeholder="z. B. Spaghetti Bolognese" />
+                <InputText class="input" @bind-Value="_model.Name" @onblur="CheckNameDuplicate"
+                           placeholder="z. B. Spaghetti Bolognese" />
+                @if (_nameMatches is not null && _nameMatches.Count > 0)
+                {
+                    <div style="margin-top:0.75rem;">
+                        <div style="font-weight:600; margin-bottom:0.5rem;">
+                            @(_nameMatches.Count == 1
+                                ? "Dieses Rezept existiert bereits in der Bibliothek:"
+                                : $"Dieses Rezept existiert in {_nameMatches.Count} Versionen – wähle die passende:")
+                        </div>
+                        <div class="stack" style="gap:0.5rem; margin-bottom:0.5rem;">
+                            @foreach (var m in _nameMatches)
+                            {
+                                <div class="card" style="display:flex; flex-direction:row; gap:0.75rem; align-items:center; padding:0.75rem; border:1.5px solid var(--border);">
+                                    @if (!string.IsNullOrWhiteSpace(m.Recipe.ImageUrl))
+                                    {
+                                        <img src="@m.Recipe.ImageUrl" alt="" style="width:56px; height:56px; object-fit:cover; border-radius:var(--radius); flex-shrink:0;" />
+                                    }
+                                    else
+                                    {
+                                        <div style="width:56px; height:56px; border-radius:var(--radius); background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:1.5rem; flex-shrink:0;">
+                                            @(m.Recipe.Category?.Icon ?? "🍽️")
+                                        </div>
+                                    }
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:700;">@m.Recipe.Name</div>
+                                        @if (!string.IsNullOrWhiteSpace(m.Recipe.Description))
+                                        {
+                                            <div class="text-sm muted" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@m.Recipe.Description</div>
+                                        }
+                                        <div class="row text-sm muted" style="gap:0.75rem; margin-top:0.25rem; flex-wrap:wrap;">
+                                            @if (m.Recipe.TotalTimeMinutes > 0)
+                                            {
+                                                <span>⏱ @m.Recipe.TotalTimeMinutes min</span>
+                                            }
+                                            @if (m.Recipe.Servings > 0)
+                                            {
+                                                <span>👥 @m.Recipe.Servings Portionen</span>
+                                            }
+                                            @if (m.IngredientCount > 0)
+                                            {
+                                                <span>📋 @m.IngredientCount Zutaten</span>
+                                            }
+                                            <span style="color:var(--accent);">🏠 @m.HouseholdCount @(m.HouseholdCount == 1 ? "Haushalt" : "Haushalte")</span>
+                                        </div>
+                                    </div>
+                                    <LoadingButton CssClass="btn btn-primary btn-sm" Style="flex-shrink:0;"
+                                               OnClick="() => AssignExisting(m.Recipe.Id)">Übernehmen</LoadingButton>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="DismissDuplicate">Keines passt — neu anlegen</button>
+                    </div>
+                }
+                @if (_checkingName)
+                {
+                    <span class="spinner" style="margin-top:0.4rem;"></span>
+                }
             </div>
 
             <div class="field">
@@ -96,7 +163,7 @@
 
         <div class="row" style="justify-content:flex-end;">
             <a class="btn btn-ghost" href="@CancelHref">Abbrechen</a>
-            <button type="submit" class="btn btn-primary">@(IsEditMode ? "Speichern" : "Rezept anlegen")</button>
+            <LoadingButton Type="submit" IsLoading="@_saving">@(IsEditMode ? "Speichern" : "Rezept anlegen")</LoadingButton>
         </div>
     </EditForm>
 </div>
@@ -110,6 +177,11 @@
     private List<IngredientRow> _ingredients = new();
     private List<RecipeCategory> _categories = new();
     private int _householdId;
+    private int _shareCount;
+    private List<GlobalRecipeMatch>? _nameMatches;
+    private bool _forceSave;
+    private bool _checkingName;
+    private bool _saving;
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,6 +196,8 @@
                 Nav.NavigateTo("/rezepte");
                 return;
             }
+
+            _shareCount = await RecipeService.GetShareCountAsync(Id.Value);
 
             _model = new RecipeFormModel
             {
@@ -154,8 +228,34 @@
 
     private void AddIngredient() => _ingredients.Add(new IngredientRow());
 
+    private async Task CheckNameDuplicate()
+    {
+        if (IsEditMode || _forceSave || string.IsNullOrWhiteSpace(_model.Name)) return;
+        _checkingName = true;
+        _nameMatches = null;
+        var matches = await RecipeService.FindGlobalMatchesByNameAsync(_model.Name.Trim());
+        _nameMatches = matches.Count > 0 ? matches : null;
+        _checkingName = false;
+    }
+
+    private void DismissDuplicate()
+    {
+        _nameMatches = null;
+        _forceSave = true;
+    }
+
     private async Task Save()
     {
+        // Fallback check in case user submits without leaving the name field
+        if (!IsEditMode && !_forceSave && _nameMatches is null)
+        {
+            await CheckNameDuplicate();
+            if (_nameMatches is not null) return;
+        }
+
+        _nameMatches = null;
+        _saving = true;
+
         var recipe = new Recipe
         {
             Id = Id ?? 0,
@@ -180,14 +280,20 @@
 
         if (IsEditMode)
         {
-            await RecipeService.UpdateAsync(recipe, _householdId);
-            Nav.NavigateTo($"/rezepte/{Id}");
+            var savedId = await RecipeService.UpdateAsync(recipe, _householdId);
+            Nav.NavigateTo($"/rezepte/{savedId}");
         }
         else
         {
             var created = await RecipeService.CreateAsync(recipe, _householdId);
             Nav.NavigateTo($"/rezepte/{created.Id}");
         }
+    }
+
+    private async Task AssignExisting(int recipeId)
+    {
+        await RecipeService.AssignToHouseholdAsync(recipeId, _householdId);
+        Nav.NavigateTo($"/rezepte/{recipeId}");
     }
 
     private class RecipeFormModel

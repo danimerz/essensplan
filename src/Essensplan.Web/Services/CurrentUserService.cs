@@ -15,6 +15,7 @@ public class CurrentUserService
     private string? _userId;
     private string? _email;
     private int? _householdId;
+    private string? _householdName;
     private HouseholdRole? _householdRole;
     private bool _isSuperAdmin;
     private bool _loaded;
@@ -45,9 +46,11 @@ public class CurrentUserService
         await using var db = await _dbFactory.CreateDbContextAsync();
         var membership = await db.HouseholdMemberships
             .Where(m => m.UserId == _userId)
+            .Include(m => m.Household)
             .FirstOrDefaultAsync();
 
         _householdId = membership?.HouseholdId;
+        _householdName = membership?.Household?.Name;
         _householdRole = membership?.Role;
     }
 
@@ -73,6 +76,12 @@ public class CurrentUserService
     {
         await EnsureLoadedAsync();
         return _householdId;
+    }
+
+    public async Task<string?> GetHouseholdNameAsync()
+    {
+        await EnsureLoadedAsync();
+        return _householdName;
     }
 
     public async Task<bool> IsAdminAsync()

@@ -22,16 +22,7 @@
             <label>Rezept-URL</label>
             <div class="row">
                 <input class="input" style="flex:1;" placeholder="https://www.beispiel-rezepte.de/spaghetti-bolognese" @bind="_url" @bind:event="oninput" />
-                <button class="btn btn-primary" disabled="@_loading" @onclick="Import">
-                    @if (_loading)
-                    {
-                        <span class="spinner"></span>
-                    }
-                    else
-                    {
-                        <span>Importieren</span>
-                    }
-                </button>
+                <LoadingButton IsLoading="@_loading" OnClick="Import">Importieren</LoadingButton>
             </div>
             <span class="hint">Funktioniert mit Seiten, die schema.org/Recipe-Daten (JSON-LD) einbetten – das trifft auf die meisten Rezept-Websites zu.</span>
         </div>
@@ -42,7 +33,23 @@
         <div class="alert alert-danger">⚠️ @_error</div>
     }
 
-    @if (_imported is not null)
+    @* Duplicate found — ask user what to do *@
+    @if (_duplicate is not null && _imported is not null)
+    {
+        <div class="card card-pad" style="margin-bottom:1.25rem; border:2px solid var(--warning, #f59e0b);">
+            <h3 style="margin-bottom:0.5rem;">Rezept bereits vorhanden</h3>
+            <p class="muted text-sm" style="margin-bottom:1rem;">
+                <strong>@_duplicate.Name</strong> existiert bereits in der globalen Rezeptbibliothek.
+                Möchtest du es deinem Haushalt hinzufügen oder trotzdem ein neues Rezept anlegen?
+            </p>
+            <div class="row" style="gap:0.5rem; flex-wrap:wrap;">
+                <LoadingButton OnClick="AssignExisting">Bestehendes übernehmen</LoadingButton>
+                <button class="btn btn-ghost" @onclick="() => _duplicate = null">Neu importieren</button>
+            </div>
+        </div>
+    }
+
+    @if (_imported is not null && _duplicate is null)
     {
         <div class="alert alert-success">✅ Rezept gefunden – bitte prüfen und ggf. anpassen, bevor du speicherst.</div>
 
@@ -114,7 +121,7 @@
 
             <div class="row" style="justify-content:flex-end;">
                 <button type="button" class="btn btn-ghost" @onclick="Reset">Verwerfen</button>
-                <button type="submit" class="btn btn-primary">Rezept speichern</button>
+                <LoadingButton Type="submit" IsLoading="@_saving">Rezept speichern</LoadingButton>
             </div>
         </EditForm>
     }
@@ -123,8 +130,10 @@
 @code {
     private string _url = "";
     private bool _loading;
+    private bool _saving;
     private string? _error;
     private Recipe? _imported;
+    private Recipe? _duplicate;
     private string _categoryId = "";
     private List<RecipeCategory> _categories = new();
     private int _householdId;
@@ -142,20 +151,40 @@
         _loading = true;
         _error = null;
         _imported = null;
+        _duplicate = null;
 
         var result = await ImportService.ImportFromUrlAsync(_url.Trim());
 
         _loading = false;
 
         if (!result.Success)
+        {
             _error = result.ErrorMessage;
-        else
-            _imported = result.Recipe;
+            return;
+        }
+
+        _imported = result.Recipe;
+
+        // Check for duplicate by source URL
+        if (!string.IsNullOrWhiteSpace(_url))
+        {
+            var existing = await RecipeService.FindGlobalByUrlAsync(_url.Trim());
+            if (existing is not null)
+                _duplicate = existing;
+        }
+    }
+
+    private async Task AssignExisting()
+    {
+        if (_duplicate is null) return;
+        await RecipeService.AssignToHouseholdAsync(_duplicate.Id, _householdId);
+        Nav.NavigateTo($"/rezepte/{_duplicate.Id}");
     }
 
     private async Task SaveImported()
     {
         if (_imported is null) return;
+        _saving = true;
 
         _imported.CategoryId = int.TryParse(_categoryId, out var cid) ? cid : null;
         var created = await RecipeService.CreateAsync(_imported, _householdId);
@@ -165,6 +194,7 @@
     private void Reset()
     {
         _imported = null;
+        _duplicate = null;
         _url = "";
         _error = null;
     }

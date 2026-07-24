@@ -7,6 +7,7 @@
         ("wochenplan", "📅", "Wochenplan", false),
         ("rezepte", "📖", "Rezepte", false),
         ("menus", "🍽️", "Menüs", false),
+        ("einkaufsliste", "🛒", "Einkaufsliste", false),
         ("kategorien", "🏷️", "Kategorien", false),
     };
 }
@@ -27,14 +28,23 @@
             <span class="nav-icon">👥</span>
             <span>Benutzer</span>
         </NavLink>
+        @if (_isSuperAdmin)
+        {
+            <NavLink class="nav-item" href="admin/haushalte" Match="NavLinkMatch.Prefix">
+                <span class="nav-icon">🏡</span>
+                <span>Haushalte</span>
+            </NavLink>
+        }
     }
 </nav>
 
 @code {
     private bool _isAdmin;
+    private bool _isSuperAdmin;
 
     protected override async Task OnInitializedAsync()
     {
         _isAdmin = await CurrentUser.IsAdminAsync();
+        _isSuperAdmin = await CurrentUser.IsSuperAdminAsync();
     }
 }

@@ -10,6 +10,7 @@ public class AppDbContext : IdentityDbContext<AppUser>
 
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
+    public DbSet<HouseholdRecipe> HouseholdRecipes => Set<HouseholdRecipe>();
     public DbSet<RecipeCategory> RecipeCategories => Set<RecipeCategory>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
@@ -18,6 +19,7 @@ public class AppDbContext : IdentityDbContext<AppUser>
     public DbSet<WeekPlan> WeekPlans => Set<WeekPlan>();
     public DbSet<WeekPlanEntry> WeekPlanEntries => Set<WeekPlanEntry>();
     public DbSet<RecipeRating> RecipeRatings => Set<RecipeRating>();
+    public DbSet<ShoppingListItem> ShoppingListItems => Set<ShoppingListItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +34,15 @@ public class AppDbContext : IdentityDbContext<AppUser>
                   .HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<HouseholdRecipe>(entity =>
+        {
+            entity.HasKey(hr => new { hr.HouseholdId, hr.RecipeId });
+            entity.HasOne(hr => hr.Household).WithMany(h => h.HouseholdRecipes)
+                  .HasForeignKey(hr => hr.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(hr => hr.Recipe).WithMany(r => r.HouseholdRecipes)
+                  .HasForeignKey(hr => hr.RecipeId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<RecipeCategory>(entity =>
         {
             entity.HasIndex(c => c.Name).IsUnique();
@@ -41,8 +52,6 @@ public class AppDbContext : IdentityDbContext<AppUser>
         {
             entity.HasOne(r => r.Category).WithMany(c => c.Recipes)
                   .HasForeignKey(r => r.CategoryId).OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(r => r.Household).WithMany(h => h.Recipes)
-                  .HasForeignKey(r => r.HouseholdId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(r => r.Name);
         });
 
@@ -90,6 +99,13 @@ public class AppDbContext : IdentityDbContext<AppUser>
                   .HasForeignKey(r => r.RecipeId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(r => r.User).WithMany(u => u.Ratings)
                   .HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ShoppingListItem>(entity =>
+        {
+            entity.HasOne(i => i.Household).WithMany(h => h.ShoppingListItems)
+                  .HasForeignKey(i => i.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(i => new { i.HouseholdId, i.IsDone });
         });
 
         modelBuilder.Entity<RecipeCategory>().HasData(

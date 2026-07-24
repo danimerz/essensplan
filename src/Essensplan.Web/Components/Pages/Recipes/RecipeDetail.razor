@@ -1,5 +1,6 @@
 @page "/rezepte/{Id:int}"
 @attribute [Authorize]
+@using System.Text.RegularExpressions
 @inject RecipeService RecipeService
 @inject RecipeRatingService RatingService
 @inject CurrentUserService CurrentUser
@@ -105,7 +106,22 @@ else
             }
             else
             {
-                <p style="white-space: pre-line;">@_recipe.Instructions</p>
+                <div style="white-space: pre-line; line-height: 1.75;">
+                    @foreach (var seg in ParseInstructions(_recipe.Instructions))
+                    {
+                        @if (seg.IsTimer)
+                        {
+                            <button type="button" class="timer-chip"
+                                    @onclick="() => _timer!.SetTimer(seg.Seconds, seg.Text)">
+                                ⏱ @seg.Text
+                            </button>
+                        }
+                        else
+                        {
+                            @seg.Text
+                        }
+                    }
+                </div>
             }
         </div>
     </div>
@@ -129,7 +145,7 @@ else
                 <textarea class="input textarea" style="margin-bottom:0.75rem; min-height:4rem;"
                           placeholder="Kommentar (optional)…"
                           @bind="_myComment"></textarea>
-                <button class="btn btn-primary btn-sm" @onclick="SaveRating">Bewertung speichern</button>
+                <LoadingButton CssClass="btn btn-primary btn-sm" OnClick="SaveRating">Bewertung speichern</LoadingButton>
             </div>
         }
 
@@ -170,6 +186,8 @@ else
                OnCancel="() => _confirmDelete = false"
                OnConfirm="DeleteRecipe" />
 
+<RecipeTimer @ref="_timer" />
+
 @code {
     [Parameter] public int Id { get; set; }
     private Recipe? _recipe;
@@ -177,6 +195,38 @@ else
     private int _householdId;
     private string _deleteMessage => string.Concat(_recipe?.Name, " wird endgültig gelöscht.");
     private string? _userId;
+    private RecipeTimer? _timer;
+
+    private record InstructionSegment(string Text, bool IsTimer, int Seconds = 0);
+
+    private static readonly Regex TimerRegex = new(
+        @"\b(\d+)\s*(Stunden?|Minuten?|Min\.?|Sekunden?|Sek\.?|h\b)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static List<InstructionSegment> ParseInstructions(string text)
+    {
+        var segments = new List<InstructionSegment>();
+        int lastIndex = 0;
+        foreach (Match m in TimerRegex.Matches(text))
+        {
+            if (m.Index > lastIndex)
+                segments.Add(new InstructionSegment(text[lastIndex..m.Index], false));
+
+            var value = int.Parse(m.Groups[1].Value);
+            var unit = m.Groups[2].Value.ToLower();
+            var seconds = unit.StartsWith("h") || unit.StartsWith("stund")
+                ? value * 3600
+                : unit.StartsWith("sek")
+                    ? value
+                    : value * 60;
+
+            segments.Add(new InstructionSegment(m.Value, true, seconds));
+            lastIndex = m.Index + m.Length;
+        }
+        if (lastIndex < text.Length)
+            segments.Add(new InstructionSegment(text[lastIndex..], false));
+        return segments;
+    }
 
     private List<RecipeRating> _ratings = new();
     private double _ratingAverage;
