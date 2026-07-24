@@ -70,11 +70,14 @@ else
                             </div>
                         }
                         <span class="shopping-label">
-                            @item.Name
-                            @if (item.IsManual)
-                            {
-                                <span class="shopping-manual-badge">✏️</span>
-                            }
+                            <span class="shopping-name">
+                                @item.Name
+                                @if (item.IsManual) { <span class="shopping-manual-badge">✏️</span> }
+                            </span>
+                            <span class="shopping-meta">
+                                @if (item.IsPromotion) { <span class="shopping-promo-badge">🏷️ Aktion</span> }
+                                @if (!string.IsNullOrWhiteSpace(item.Price)) { <span class="shopping-price">@item.Price CHF</span> }
+                            </span>
                         </span>
                         <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
                                 @onclick:stopPropagation="true"

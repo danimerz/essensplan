@@ -5,21 +5,23 @@ namespace Essensplan.Web.Services;
 
 public class MigrosImageService(HttpClient http)
 {
-    public async Task<string?> GetImageAsync(string ingredientName)
+    public async Task<MigrosProductInfo?> GetProductInfoAsync(string ingredientName)
     {
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
             var url = $"/image?q={Uri.EscapeDataString(ingredientName)}";
-            var result = await http.GetFromJsonAsync<MigrosImageResponse>(url, cts.Token);
-            return string.IsNullOrWhiteSpace(result?.ImageUrl) ? null : result.ImageUrl;
+            return await http.GetFromJsonAsync<MigrosProductInfo>(url, cts.Token);
         }
         catch
         {
             return null;
         }
     }
-
-    private record MigrosImageResponse(
-        [property: JsonPropertyName("imageUrl")] string? ImageUrl);
 }
+
+public record MigrosProductInfo(
+    [property: JsonPropertyName("imageUrl")] string? ImageUrl,
+    [property: JsonPropertyName("category")] string? Category,
+    [property: JsonPropertyName("price")] string? Price,
+    [property: JsonPropertyName("isPromotion")] bool IsPromotion);

@@ -204,10 +204,17 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Migr
             })
             .ToList();
 
-        // Enrich with Migros product images (parallel, falls back silently if server not running)
+        // Enrich with Migros product info: image, category (overrides keyword inference), price, promotion
         await Task.WhenAll(newItems.Select(async item =>
         {
-            item.ImageUrl = await migrosImages.GetImageAsync(item.Name);
+            var info = await migrosImages.GetProductInfoAsync(item.Name);
+            if (info is null) return;
+            if (!string.IsNullOrWhiteSpace(info.ImageUrl))
+                item.ImageUrl = info.ImageUrl;
+            if (!string.IsNullOrWhiteSpace(info.Category))
+                item.ProductCategory = info.Category;
+            item.Price = info.Price;
+            item.IsPromotion = info.IsPromotion;
         }));
 
         // Replace existing generated items, keep manual entries
@@ -232,14 +239,16 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Migr
     {
         if (string.IsNullOrWhiteSpace(name)) return;
         var trimmed = name.Trim();
-        var imageUrl = await migrosImages.GetImageAsync(trimmed);
+        var info = await migrosImages.GetProductInfoAsync(trimmed);
         await using var db = await dbFactory.CreateDbContextAsync();
         db.ShoppingListItems.Add(new ShoppingListItem
         {
             HouseholdId = householdId,
             Name = trimmed,
-            ProductCategory = InferCategory(trimmed),
-            ImageUrl = imageUrl,
+            ProductCategory = info?.Category ?? InferCategory(trimmed),
+            ImageUrl = string.IsNullOrWhiteSpace(info?.ImageUrl) ? null : info.ImageUrl,
+            Price = info?.Price,
+            IsPromotion = info?.IsPromotion ?? false,
             IsManual = true,
             SortOrder = 9999
         });
