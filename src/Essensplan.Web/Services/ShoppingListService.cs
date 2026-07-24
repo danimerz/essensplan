@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Essensplan.Web.Services;
 
-public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, OpenFoodFactsService offService)
+public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory)
 {
-    // Word-based: if any single word in the ingredient name matches, it's equipment
+    // Word-based: if any single word in the ingredient name matches, it's equipment/non-food
     private static readonly HashSet<string> KitchenEquipment = new(StringComparer.OrdinalIgnoreCase)
     {
         "backblech", "blech", "backform", "springform", "kuchenform", "tortenform", "muffinform", "auflaufform",
@@ -22,8 +22,8 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Open
         "mörser", "stößel",
         "gitter", "kuchengitter", "abkühlgitter",
         "messbecher", "küchenwaage", "waage",
-        "frischhaltefolie", "alufolie",
-        "zahnstocher", "spieße", "holzspieße",
+        "frischhaltefolie", "klarsichtfolie", "alufolie", "backpapier", "backpapiers",
+        "zahnstocher", "spieße", "holzspieße", "spaghettimaschine",
     };
 
     // Matches "½ TL Salz", "1½ EL Öl", "200 g Mehl" — quantity+unit embedded in name field
@@ -32,6 +32,93 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Open
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ParensRegex = new(@"\s*\([^)]*\)\s*", RegexOptions.Compiled);
+
+    // Ordered category rules — first match wins
+    // Checks if the ingredient name (lowercase) contains any of the listed substrings
+    private static readonly (string[] Terms, string Category)[] CategoryRules =
+    [
+        (["butter", "bratbutter", "milch", "halbmilch", "vollmilch", "rahm", "halbrahm", "obers",
+          "sahne", "sauerrahm", "schmand", "kaffeesahne", "buttermilch", "kondensmilch",
+          "joghurt", "yoghurt", "skyr",
+          "käse", "frischkäse", "mascarpone", "ricotta", "mozzarella", "parmesan",
+          "gruyère", "gruyere", "emmentaler", "feta", "gorgonzola", "brie", "camembert",
+          "appenzeller", "raclette", "hüttenkäse", "quark",
+          "crème fraîche", "creme fraiche", "créme fraîche",
+          "eier", " ei ", " ei,"],
+         "Milch & Milchprodukte"),
+
+        (["rindfleisch", "schweinefleisch", "kalbfleisch", "lammfleisch", "hackfleisch", "gehacktes",
+          "hühnchen", "hähnchen", "poulet", "geflügel", "ente", "gans", "truthahn", "pute",
+          "speck", "schinken", "prosciutto", "pancetta", "guanciale", "bacon",
+          "bratwurst", "cervelat", "lyoner", "mortadella", "salami", "chorizo", "landjäger", "mettwurst",
+          "lachs", "forelle", "zander", "kabeljau", "thunfisch", "hecht", "tilapia", "makrele", "hering",
+          "garnelen", "crevetten", "muscheln", "tintenfisch", "calamari", "anchovi", "sardinen",
+          "fisch", "meeresfrüchte"],
+         "Fleisch & Fisch"),
+
+        (["spaghetti", "penne", "fusilli", "tagliatelle", "linguine", "fettuccine", "lasagne",
+          "rigatoni", "farfalle", "tortellini", "ravioli", "hörnchen", "conchiglie", "orecchiette",
+          "gnocchi", "couscous", "bulgur", "quinoa", "polenta", "griess",
+          "basmati", "jasmin", "risotto", "arborio", "carnaroli",
+          "haferflocken", "granola", "müsli", "cornflakes",
+          "linsen", "kichererbsen", "kidneybohnen", "canellini", "weisse bohnen", "schwarze bohnen",
+          "mehl", "weissmehl", "vollkornmehl", "dinkelmehl", "roggenmehl", "hartweizengriess",
+          "nudeln", "pasta", "teigwaren", "reis "],
+         "Pasta, Reis & Körner"),
+
+        (["brot", "toast", "vollkornbrot", "weissbrot", "ruchbrot", "dinkelbrot",
+          "brötchen", "semmel", "weggli", "baguette", "ciabatta", "focaccia",
+          "croissant", "zopf", "hefezopf", "laugenstange"],
+         "Brot & Backwaren"),
+
+        (["zucker", "puderzucker", "vanillezucker", "rohrzucker", "brauner zucker", "muscovado",
+          "honig", "ahornsirup", "agavendicksaft", "reissirup",
+          "schokolade", "kakaopulver", "kakao", "schokotropfen", "kuvertüre", "nuss-nougat", "nutella",
+          "marzipan", "mandeln", "walnüsse", "haselnüsse", "cashews", "pistazien", "pekannüsse", "erdnüsse",
+          "backpulver", "natron", "weinstein",
+          "hefe", "trockenhefe", "frischhefe",
+          "vanille", "vanillemark", "vanilleextrakt", "vanilleschote",
+          "stärke", "maizena", "speisestärke", "kartoffelstärke",
+          "gelatine", "agar", "pektin",
+          "rosinen", "sultaninen", "cranberries", "datteln", "feigen", "aprikosen", "pflaumen",
+          "mohn", "sesam", "leinsamen", "chiasamen", "kürbiskerne", "sonnenblumenkerne"],
+         "Süsses & Backzutaten"),
+
+        (["olivenöl", "rapsöl", "sonnenblumenöl", "kokosöl", "sesamöl", "erdnussöl", "trüffelöl", " öl",
+          "essig", "balsamico", "weinessig", "apfelessig", "reisessig",
+          "senf", "mayonnaise", "ketchup", "worcester", "tabasco", "sriracha", "sambal", "harissa",
+          "sojasauce", "tamari", "fischsauce", "austersauce", "hoisin",
+          "tomatenmark", "tomatensauce", "passierte tomaten", "pelati", "sugo",
+          "salz", "pfeffer", "paprikapulver", "kurkuma", "kreuzkümmel", "zimt", "muskat", "nelken",
+          "chili", "chilipulver", "curry", "safran", "lorbeer", "kardomom", "sternanis",
+          "thymian", "rosmarin", "basilikum", "oregano", "petersilie", "schnittlauch", "dill",
+          "minze", "salbei", "majoran", "estragon", "kerbel", "liebstöckel",
+          "bouillon", "brühe", "fond", "fleischbrühe", "gemüsebrühe", "hühnerbrühe",
+          "knoblauch", "ingwer", "kumin"],
+         "Gewürze & Öle"),
+
+        (["mineralwasser", "sprudelwasser", "hahnenwasser",
+          "orangensaft", "apfelsaft", "traubensaft", "multivitaminsaft",
+          "bier", "weisswein", "rotwein", "roséwein", "champagner", "prosecco", "sekt",
+          "kaffee", "espresso", "cappuccino",
+          "kokosmilch", "kokoswasser", "mandelmilch", "hafermilch", "sojamilch", "reismilch"],
+         "Getränke"),
+
+        (["erdbeeren", "blaubeeren", "himbeeren", "brombeeren", "kirschen", "trauben",
+          "mango", "ananas", "melone", "wassermelone", "avocado",
+          "bananen", "banane", "äpfel", "apfel", "birnen", "birne",
+          "orangen", "orange", "zitronen", "zitrone", "limetten", "limette", "grapefruit",
+          "tomaten", "tomate", "cherrytomaten", "rispentomaten",
+          "zwiebel", "schalotte", "frühlingszwiebeln", "lauch", "porree",
+          "karotten", "karotte", "rüebli", "möhren", "pastinaken", "sellerie",
+          "zucchini", "aubergine", "paprika", "peperoni",
+          "brokkoli", "blumenkohl", "rosenkohl", "kohlrabi", "kohl", "rotkohl", "spitzkohl",
+          "spinat", "mangold", "rucola", "salat", "feldsalat", "endivie",
+          "gurke", "rettich", "radieschen", "fenchel", "artischocke",
+          "pilze", "champignons", "steinpilze", "pfifferlinge", "shiitake",
+          "kartoffeln", "kartoffel", "süsskartoffeln", "yam"],
+         "Gemüse & Früchte"),
+    ];
 
     private static string NormalizeName(string raw)
     {
@@ -56,6 +143,16 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Open
     private static bool IsEquipment(string name) =>
         name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(word => KitchenEquipment.Contains(word.TrimEnd('.', ',', ';', ':').TrimStart('(')));
+
+    private static string InferCategory(string name)
+    {
+        // Pad with spaces so we can do whole-word matching on short terms like " öl", " ei "
+        var padded = " " + name.ToLowerInvariant() + " ";
+        foreach (var (terms, category) in CategoryRules)
+            if (terms.Any(t => padded.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                return category;
+        return "Sonstiges";
+    }
 
     public async Task<List<ShoppingListItem>> GetItemsAsync(int householdId)
     {
@@ -89,30 +186,23 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Open
             .SelectMany(mr => mr.Recipe!.Ingredients)
             .ToList() ?? [];
 
-        // Normalize names, filter equipment, deduplicate
+        // Normalize names, filter equipment, deduplicate, assign category
         var newItems = ingredients
             .Select(i => NormalizeName(i.Name))
             .Where(name => !string.IsNullOrWhiteSpace(name) && !IsEquipment(name))
             .GroupBy(name => name.ToLowerInvariant())
-            .Select(g => g.First()) // keep first occurrence's casing
+            .Select(g => g.First())
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .Select((name, idx) => new ShoppingListItem
             {
                 HouseholdId = householdId,
                 Name = name,
+                ProductCategory = InferCategory(name),
                 IsDone = false,
                 IsManual = false,
                 SortOrder = idx
             })
             .ToList();
-
-        // Enrich with Open Food Facts (parallel, max 5 concurrent via service-level semaphore)
-        await Task.WhenAll(newItems.Select(async item =>
-        {
-            var (imageUrl, category) = await offService.LookupAsync(item.Name);
-            item.ImageUrl = imageUrl;
-            item.ProductCategory = category;
-        }));
 
         // Replace existing generated items, keep manual entries
         var oldGenerated = await db.ShoppingListItems

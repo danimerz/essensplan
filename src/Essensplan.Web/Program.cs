@@ -65,11 +65,6 @@ builder.Services.AddHttpClient<RecipeImportService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
-builder.Services.AddHttpClient<OpenFoodFactsService>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.Add("User-Agent", "Essensplan/1.0 (https://github.com/danielmerz/essensplan)");
-});
 
 var app = builder.Build();
 
