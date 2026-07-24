@@ -67,9 +67,9 @@ else
                         @if (_editingId != h.Id)
                         {
                             <div class="row" style="gap:0.4rem;">
-                                <button class="btn btn-ghost btn-sm" @onclick="() => ToggleMembers(h.Id)">
+                                <LoadingButton CssClass="btn btn-ghost btn-sm" OnClick="() => ToggleMembers(h.Id)">
                                     @(_expandedId == h.Id ? "▲ Mitglieder" : "▼ Mitglieder")
-                                </button>
+                                </LoadingButton>
                                 <button class="btn btn-ghost btn-sm" @onclick="() => StartEdit(h.Id, h.Name)">Umbenennen</button>
                                 <button class="btn btn-ghost btn-sm" style="color:var(--danger);"
                                         @onclick="() => ConfirmDelete(h.Id, h.Name, h.MemberCount)">Löschen</button>

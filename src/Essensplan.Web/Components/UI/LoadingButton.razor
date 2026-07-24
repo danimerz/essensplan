@@ -6,7 +6,8 @@
 
 <button class="@CssClass" type="@Type" style="@Style"
         disabled="@(IsLoading || _busy)"
-        @onclick="HandleClick">
+        @onclick="HandleClick"
+        @attributes="AdditionalAttributes">
     @if (IsLoading || _busy)
     {
         <span class="spinner" style="width:1em;height:1em;border-width:2px;margin-right:0.4em;vertical-align:middle;"></span>
@@ -25,6 +26,7 @@
     [Parameter] public string? Style { get; set; }
     [Parameter] public bool IsLoading { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private bool _busy;
 

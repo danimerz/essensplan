@@ -45,7 +45,7 @@ else
                     </div>
                     <div class="row" style="gap:0.25rem;">
                         <button class="btn btn-ghost btn-icon btn-sm" title="Bearbeiten" @onclick="() => OpenEdit(cat)">✏️</button>
-                        <button class="btn btn-ghost btn-icon btn-sm" title="Löschen" @onclick="() => Delete(cat)">🗑️</button>
+                        <LoadingButton CssClass="btn btn-ghost btn-icon btn-sm" title="Löschen" OnClick="() => Delete(cat)">🗑️</LoadingButton>
                     </div>
                 </div>
             </div>
