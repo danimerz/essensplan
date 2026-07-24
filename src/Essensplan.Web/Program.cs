@@ -65,13 +65,6 @@ builder.Services.AddHttpClient<RecipeImportService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
-var offUserAgent = builder.Configuration["OpenFoodFacts:UserAgent"] ?? "Essensplan/1.0";
-builder.Services.AddHttpClient<OpenFoodFactsService>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.Add("User-Agent", offUserAgent);
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
 
 
 var app = builder.Build();

@@ -59,14 +59,9 @@ else
                 @foreach (var item in group.OrderBy(i => i.Name))
                 {
                     <div class="shopping-item" @onclick="() => Toggle(item)">
-                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
-                        {
-                            <img src="@item.ImageUrl" class="shopping-product-img" alt="" loading="lazy" />
-                        }
-                        else
-                        {
-                            <div class="shopping-product-initial">@(char.ToUpper(item.Name[0]))</div>
-                        }
+                        <div class="shopping-cat-icon" style="background:@GetCategoryColor(item.ProductCategory)">
+                            @GetCategoryEmoji(item.IsManual ? null : item.ProductCategory)
+                        </div>
                         <span class="shopping-label">@item.Name</span>
                         <button type="button" class="btn btn-ghost btn-icon btn-sm shopping-delete"
                                 @onclick:stopPropagation="true"
@@ -118,6 +113,34 @@ else
 }
 
 @code {
+    private static string GetCategoryEmoji(string? category) => category switch
+    {
+        "Gemüse & Früchte"       => "🥦",
+        "Milch & Milchprodukte"  => "🥛",
+        "Fleisch & Fisch"        => "🥩",
+        "Brot & Backwaren"       => "🍞",
+        "Pasta, Reis & Körner"   => "🌾",
+        "Gewürze & Öle"          => "🧂",
+        "Getränke"               => "🥤",
+        "Süsses & Backzutaten"   => "🍰",
+        "Tiefkühlprodukte"       => "❄️",
+        _                        => "✏️",
+    };
+
+    private static string GetCategoryColor(string? category) => category switch
+    {
+        "Gemüse & Früchte"       => "#14532d",
+        "Milch & Milchprodukte"  => "#1e3a8a",
+        "Fleisch & Fisch"        => "#7f1d1d",
+        "Brot & Backwaren"       => "#78350f",
+        "Pasta, Reis & Körner"   => "#713f12",
+        "Gewürze & Öle"          => "#7c2d12",
+        "Getränke"               => "#164e63",
+        "Süsses & Backzutaten"   => "#581c87",
+        "Tiefkühlprodukte"       => "#1e3a5f",
+        _                        => "#374151",
+    };
+
     private static readonly Dictionary<string, int> CategoryOrder = new()
     {
         ["Gemüse & Früchte"] = 1,
