@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Essensplan.Web.Services;
 
-public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory)
+public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, OpenFoodFactsService offService)
 {
     // Word-based: if any single word in the ingredient name matches, it's equipment/non-food
     private static readonly HashSet<string> KitchenEquipment = new(StringComparer.OrdinalIgnoreCase)
@@ -203,6 +203,12 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory)
                 SortOrder = idx
             })
             .ToList();
+
+        // Enrich with product images from Open Food Facts (parallel, category stays local)
+        await Task.WhenAll(newItems.Select(async item =>
+        {
+            item.ImageUrl = await offService.GetImageAsync(item.Name);
+        }));
 
         // Replace existing generated items, keep manual entries
         var oldGenerated = await db.ShoppingListItems
