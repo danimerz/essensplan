@@ -12,10 +12,16 @@ async function getToken() {
   if (_token && Date.now() < _tokenExpiry) return _token;
   console.log('[migros] Fetching guest token...');
   const info = await MigrosAPI.account.oauth2.getGuestToken();
-  _token = info.token ?? info.access_token ?? info;
+  _token = info.token;
   _tokenExpiry = Date.now() + 50 * 60 * 1000; // 50 min
   console.log('[migros] Guest token acquired.');
   return _token;
+}
+
+function resolveImageUrl(url) {
+  if (!url) return null;
+  // Replace Rokka {stack} placeholder with a 200x200 stack
+  return url.replace('{stack}', 'fl-w200-h200');
 }
 
 // Simple in-process image cache (per server run)
@@ -31,21 +37,29 @@ app.get('/image', async (req, res) => {
 
   try {
     const token = await getToken();
-    const result = await MigrosAPI.products.productSearch.postProductSearch(
-      { query: q, language: 'de' },
-      { leshopceh: token }
-    );
 
-    // Log first result so we can inspect the shape during development
-    if (result?.articles?.length) {
-      console.log(`[migros] "${q}" → first article:`, JSON.stringify(result.articles[0], null, 2));
-    } else {
-      console.log(`[migros] "${q}" → no articles`, JSON.stringify(result, null, 2));
+    // Step 1: search for product IDs
+    const searchResult = await MigrosAPI.products.productSearch.searchProduct(
+      { query: q, language: 'de' },
+      { leshopch: token }
+    );
+    const firstId = searchResult?.productIds?.[0];
+    if (!firstId) {
+      console.log(`[migros] "${q}" → no product IDs found`);
+      imageCache.set(q, null);
+      return res.json({ imageUrl: null });
     }
 
-    const article = result?.articles?.[0];
-    const imageUrl = article?.imageLarge ?? article?.imageSmall ?? article?.image ?? null;
+    // Step 2: get product card with image
+    const cards = await MigrosAPI.products.productDisplay.getProductCards(
+      { productFilter: { uids: [firstId] } },
+      { leshopch: token }
+    );
+    const card = Array.isArray(cards) ? cards[0] : null;
+    const rawUrl = card?.images?.[0]?.url ?? card?.imageTransparent?.url ?? null;
+    const imageUrl = resolveImageUrl(rawUrl);
 
+    console.log(`[migros] "${q}" → ${imageUrl ?? 'no image'}`);
     imageCache.set(q, imageUrl);
     return res.json({ imageUrl });
   } catch (err) {
