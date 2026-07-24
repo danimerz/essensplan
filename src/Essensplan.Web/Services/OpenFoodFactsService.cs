@@ -15,12 +15,21 @@ public class OpenFoodFactsService(HttpClient http)
             using var reqCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             reqCts.CancelAfter(TimeSpan.FromSeconds(6));
 
+            // No sort_by → Elasticsearch relevance ranking (better than most-scanned-globally)
             var url = "https://world.openfoodfacts.org/api/v2/search" +
                       $"?q={Uri.EscapeDataString(ingredientName)}" +
-                      "&fields=image_front_small_url&page_size=5&sort_by=unique_scans_n";
+                      "&fields=product_name,image_front_small_url&page_size=10";
 
             var result = await http.GetFromJsonAsync<OffResponse>(url, reqCts.Token);
-            return result?.Products?.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ImageUrl))?.ImageUrl;
+            var products = result?.Products ?? [];
+
+            // Prefer a product whose name actually contains the ingredient
+            var nameMatch = products.FirstOrDefault(p =>
+                !string.IsNullOrWhiteSpace(p.ImageUrl) &&
+                p.ProductName?.Contains(ingredientName, StringComparison.OrdinalIgnoreCase) == true);
+
+            return nameMatch?.ImageUrl
+                ?? products.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ImageUrl))?.ImageUrl;
         }
         catch
         {
@@ -35,5 +44,6 @@ public class OpenFoodFactsService(HttpClient http)
     private record OffResponse([property: JsonPropertyName("products")] List<OffProduct>? Products);
 
     private record OffProduct(
+        [property: JsonPropertyName("product_name")] string? ProductName,
         [property: JsonPropertyName("image_front_small_url")] string? ImageUrl);
 }
