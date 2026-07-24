@@ -20,8 +20,7 @@ async function getToken() {
 
 function resolveImageUrl(url) {
   if (!url) return null;
-  // Replace Rokka {stack} placeholder with a 200x200 stack
-  return url.replace('{stack}', 'fl-w200-h200');
+  return url.replace('{stack}', 'original');
 }
 
 // Simple in-process image cache (per server run)
