@@ -18,6 +18,7 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 - [x] „Geteilt"-Badge auf Rezeptkarten (zeigt, wenn das Rezept in mehreren Haushalten verwendet wird)
 - [x] Aktiver Haushalt in der Seitenleiste anzeigen
 - [x] „Bitte warten"-Spinner auf allen Speichern-Buttons (`LoadingButton`-Komponente, deaktiviert während der Aktion)
+- [x] Migros-Integration: Produktbilder, Kategorie (aus Migros-Breadcrumb), aktueller Preis und Aktions-Badge (🏷️) auf Einkaufslisten-Artikeln — Node.js Sidecar (`migros-image-server`) mit täglichem Promotions-Cache
 
 ---
 
@@ -25,8 +26,9 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 
 - [x] Automatische Einkaufsliste aus dem Wochenplan generieren (Zutaten aller geplanten Menüs zusammenführen, Mengen addieren).
 - [x] Zutaten beim Einkaufen abhaken (persistenter Haken in DB, haushaltsübergreifend).
-- [x] Manuelle Zusatzeinträge auf der Einkaufsliste ("Küchenpapier", "Katzenfutter").
+- [x] Manuelle Zusatzeinträge auf der Einkaufsliste ("Küchenpapier", "Katzenfutter") — werden gleich wie Auto-Einträge mit Migros-Daten angereichert.
 - [x] Als Text kopieren (📋-Button, WhatsApp-tauglich).
+- [x] Artikel nach Kategorie gruppiert (Migros-Kategorie hat Vorrang, Keyword-Fallback wenn Sidecar nicht verfügbar).
 - [ ] Mengen-Umrechnung/-Bündelung, wenn dieselbe Zutat in mehreren Rezepten mit
   unterschiedlichen Einheiten vorkommt (g/kg, ml/l).
 - [ ] Einkaufsliste als PDF exportieren.
@@ -89,6 +91,14 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
   Modals, ARIA-Labels für Icon-only-Buttons.
 - [ ] Sortierbare Kategorien per Drag & Drop statt nur SortOrder-Feld.
 
+## 🚀 Deployment & Infrastruktur
+
+- [x] Proxmox LXC Deployment-Scripts (`scripts/`): Erstinstallation, App-Setup, Update-Script.
+- [x] DNS-Migration zu Cloudflare (`familie-merz.ch`) — E-Mail & Nabu Casa bleiben erhalten.
+- [ ] Cloudflare Tunnel einrichten für externen Zugriff (kein Port-Forwarding nötig).
+- [ ] HTTPS via Cloudflare Tunnel (automatisch, kein Zertifikat managen).
+- [ ] Automatisches Update per Cron-Job im LXC Container (optional, bereits im Setup-Script vorbereitet).
+
 ## 🛠 Technik & Qualität
 
 - [ ] Unit-/Integrationstests (aktuell keine automatisierten Tests vorhanden) –
@@ -107,5 +117,5 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 - [ ] KI-gestützte Menüvorschläge basierend auf vorhandenen Zutaten im Kühlschrank.
 - [ ] Saisonale Rezeptvorschläge (was passt gerade jetzt im Juli).
 - [ ] Reste-Verwertung: "Was kann ich aus X, Y, Z kochen?"
-- [ ] Integration mit Lieferdiensten/Online-Supermärkten für die Einkaufsliste.
+- [x] Integration mit Migros (Produktbilder, Preise, Aktionen) — siehe oben.
 - [ ] Mehrsprachigkeit (aktuell komplett auf Deutsch hartkodiert).
