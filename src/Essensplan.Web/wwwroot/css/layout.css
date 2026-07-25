@@ -104,6 +104,18 @@
   background: var(--surface-alt);
 }
 
+.user-chip-info {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-chip-email {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .nav-section-label {
   font-size: 0.7rem;
   font-weight: 700;

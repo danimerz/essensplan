@@ -120,6 +120,46 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Migr
          "Gemüse & Früchte"),
     ];
 
+    private static (decimal amount, string unit) ToBaseUnit(decimal amount, string unit) =>
+        unit.ToLowerInvariant() switch
+        {
+            "kg" => (amount * 1000m, "g"),
+            "l"  => (amount * 1000m, "ml"),
+            "dl" => (amount * 100m, "ml"),
+            _    => (amount, unit.ToLowerInvariant())
+        };
+
+    private static string FormatNum(decimal d)
+    {
+        d = Math.Round(d, 2);
+        if (d == Math.Floor(d)) return ((int)d).ToString();
+        return d.ToString("G4", System.Globalization.CultureInfo.InvariantCulture)
+                .TrimEnd('0').TrimEnd('.');
+    }
+
+    private static string FormatGroup(decimal amount, string unit)
+    {
+        if (unit == "g"  && amount >= 1000m) return $"{FormatNum(amount / 1000m)} kg";
+        if (unit == "ml" && amount >= 1000m) return $"{FormatNum(amount / 1000m)} l";
+        if (unit == "ml" && amount >= 100m)  return $"{FormatNum(amount / 100m)} dl";
+        return $"{FormatNum(amount)} {unit}";
+    }
+
+    private static string? AggregateQuantities(IEnumerable<(decimal? Amount, string? Unit)> sources)
+    {
+        var items = sources
+            .Where(x => x.Amount.HasValue && !string.IsNullOrWhiteSpace(x.Unit))
+            .Select(x => ToBaseUnit(x.Amount!.Value, x.Unit!))
+            .ToList();
+        if (items.Count == 0) return null;
+
+        var groups = items
+            .GroupBy(x => x.unit)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.amount));
+
+        return string.Join(" + ", groups.Select(kv => FormatGroup(kv.Value, kv.Key)));
+    }
+
     private static string NormalizeName(string raw)
     {
         var name = raw.Trim();
@@ -186,21 +226,26 @@ public class ShoppingListService(IDbContextFactory<AppDbContext> dbFactory, Migr
             .SelectMany(mr => mr.Recipe!.Ingredients)
             .ToList() ?? [];
 
-        // Normalize names, filter equipment, deduplicate, assign category
+        // Normalize names, filter equipment, aggregate quantities
         var newItems = ingredients
-            .Select(i => NormalizeName(i.Name))
-            .Where(name => !string.IsNullOrWhiteSpace(name) && !IsEquipment(name))
-            .GroupBy(name => name.ToLowerInvariant())
-            .Select(g => g.First())
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .Select((name, idx) => new ShoppingListItem
+            .Select(i => (Name: NormalizeName(i.Name), i.Quantity, i.Unit))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name) && !IsEquipment(x.Name))
+            .GroupBy(x => x.Name.ToLowerInvariant())
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select((g, idx) =>
             {
-                HouseholdId = householdId,
-                Name = name,
-                ProductCategory = InferCategory(name),
-                IsDone = false,
-                IsManual = false,
-                SortOrder = idx
+                var name = g.First().Name;
+                var displayQty = AggregateQuantities(g.Select(x => (x.Quantity, x.Unit)));
+                return new ShoppingListItem
+                {
+                    HouseholdId = householdId,
+                    Name = name,
+                    Unit = displayQty,
+                    ProductCategory = InferCategory(name),
+                    IsDone = false,
+                    IsManual = false,
+                    SortOrder = idx
+                };
             })
             .ToList();
 

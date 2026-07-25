@@ -72,6 +72,7 @@ else
                         <span class="shopping-label">
                             <span class="shopping-name">
                                 @item.Name
+                                @if (!string.IsNullOrWhiteSpace(item.Unit)) { <span class="shopping-qty">@item.Unit</span> }
                                 @if (item.IsManual) { <span class="shopping-manual-badge">✏️</span> }
                             </span>
                             <span class="shopping-meta">

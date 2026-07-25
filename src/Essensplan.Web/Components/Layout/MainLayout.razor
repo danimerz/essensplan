@@ -16,14 +16,14 @@
         <div class="sidebar-footer">
             <ThemeToggle />
             <div class="user-chip">
-                <div>
+                <div class="user-chip-info">
                     @if (_householdName is not null)
                     {
                         <div class="text-sm muted" style="margin-bottom:0.1rem;">🏠 @_householdName</div>
                     }
-                    <a href="/konto" class="muted text-sm" style="text-decoration:none;">@_email</a>
+                    <a href="/konto" class="muted text-sm user-chip-email" style="text-decoration:none;">@_email</a>
                 </div>
-                <a class="btn btn-ghost btn-sm" href="/abmelden">Abmelden</a>
+                <a class="btn btn-ghost btn-sm" style="flex-shrink:0;" href="/abmelden">Abmelden</a>
             </div>
         </div>
     </aside>

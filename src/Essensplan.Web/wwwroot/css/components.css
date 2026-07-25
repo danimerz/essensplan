@@ -546,6 +546,13 @@ a.card:hover .media-veil { opacity: 1; }
   color: var(--text-muted);
 }
 
+.shopping-qty {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 0.3rem;
+}
+
 /* ==========================================================================
    Recipe timer chip + widget
    ========================================================================== */
