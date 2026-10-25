@@ -262,7 +262,7 @@ async Task EnsureMenuColumnMigratedAsync(AppDbContext db)
         await convertCmd.ExecuteNonQueryAsync();
 
         using var dropCmd = conn.CreateCommand();
-        dropCmd.CommandText = "ALTER TABLE `Menus` DROP COLUMN IF EXISTS `MealType`";
+        dropCmd.CommandText = "ALTER TABLE `Menus` DROP COLUMN `MealType`";
         await dropCmd.ExecuteNonQueryAsync();
 
         app.Logger.LogInformation("Column fix applied successfully.");

@@ -12,11 +12,14 @@ namespace Essensplan.Web.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Idempotent SQL – safe to re-run if migration partially applied before
-            migrationBuilder.Sql("DROP INDEX IF EXISTS `IX_WeekPlans_StartDate` ON `WeekPlans`");
-            migrationBuilder.Sql("ALTER TABLE `WeekPlans` ADD COLUMN IF NOT EXISTS `HouseholdId` int NOT NULL DEFAULT 0");
-            migrationBuilder.Sql("ALTER TABLE `Recipes`   ADD COLUMN IF NOT EXISTS `HouseholdId` int NOT NULL DEFAULT 0");
-            migrationBuilder.Sql("ALTER TABLE `Menus`     ADD COLUMN IF NOT EXISTS `HouseholdId` int NOT NULL DEFAULT 0");
+            // Plain MySQL does not support "IF EXISTS"/"IF NOT EXISTS" on DROP INDEX or ADD COLUMN
+            // (that's a MariaDB-only extension) - EF already runs this migration inside a single
+            // transaction, and a genuinely partially-applied DB is recovered separately via
+            // FixPartialMigrationAsync in Program.cs before MigrateAsync() ever gets here.
+            migrationBuilder.Sql("DROP INDEX `IX_WeekPlans_StartDate` ON `WeekPlans`");
+            migrationBuilder.Sql("ALTER TABLE `WeekPlans` ADD COLUMN `HouseholdId` int NOT NULL DEFAULT 0");
+            migrationBuilder.Sql("ALTER TABLE `Recipes`   ADD COLUMN `HouseholdId` int NOT NULL DEFAULT 0");
+            migrationBuilder.Sql("ALTER TABLE `Menus`     ADD COLUMN `HouseholdId` int NOT NULL DEFAULT 0");
 
             // ---- Tables (CREATE TABLE IF NOT EXISTS) ----
             migrationBuilder.Sql(
@@ -176,21 +179,21 @@ namespace Essensplan.Web.Data.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Cascade);
 
-            // ---- Indexes (IF NOT EXISTS) ----
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS `IX_WeekPlans_HouseholdId_StartDate` ON `WeekPlans` (`HouseholdId`, `StartDate`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_Recipes_HouseholdId` ON `Recipes` (`HouseholdId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_Menus_HouseholdId` ON `Menus` (`HouseholdId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_AspNetRoleClaims_RoleId` ON `AspNetRoleClaims` (`RoleId`)");
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS `RoleNameIndex` ON `AspNetRoles` (`NormalizedName`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_AspNetUserClaims_UserId` ON `AspNetUserClaims` (`UserId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_AspNetUserLogins_UserId` ON `AspNetUserLogins` (`UserId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_AspNetUserRoles_RoleId` ON `AspNetUserRoles` (`RoleId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `EmailIndex` ON `AspNetUsers` (`NormalizedEmail`)");
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS `UserNameIndex` ON `AspNetUsers` (`NormalizedUserName`)");
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS `IX_HouseholdMemberships_HouseholdId_UserId` ON `HouseholdMemberships` (`HouseholdId`, `UserId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_HouseholdMemberships_UserId` ON `HouseholdMemberships` (`UserId`)");
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS `IX_RecipeRatings_RecipeId_UserId` ON `RecipeRatings` (`RecipeId`, `UserId`)");
-            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS `IX_RecipeRatings_UserId` ON `RecipeRatings` (`UserId`)");
+            // ---- Indexes (plain MySQL has no "IF NOT EXISTS" for CREATE INDEX either) ----
+            migrationBuilder.Sql("CREATE UNIQUE INDEX `IX_WeekPlans_HouseholdId_StartDate` ON `WeekPlans` (`HouseholdId`, `StartDate`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_Recipes_HouseholdId` ON `Recipes` (`HouseholdId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_Menus_HouseholdId` ON `Menus` (`HouseholdId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_AspNetRoleClaims_RoleId` ON `AspNetRoleClaims` (`RoleId`)");
+            migrationBuilder.Sql("CREATE UNIQUE INDEX `RoleNameIndex` ON `AspNetRoles` (`NormalizedName`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_AspNetUserClaims_UserId` ON `AspNetUserClaims` (`UserId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_AspNetUserLogins_UserId` ON `AspNetUserLogins` (`UserId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_AspNetUserRoles_RoleId` ON `AspNetUserRoles` (`RoleId`)");
+            migrationBuilder.Sql("CREATE INDEX `EmailIndex` ON `AspNetUsers` (`NormalizedEmail`)");
+            migrationBuilder.Sql("CREATE UNIQUE INDEX `UserNameIndex` ON `AspNetUsers` (`NormalizedUserName`)");
+            migrationBuilder.Sql("CREATE UNIQUE INDEX `IX_HouseholdMemberships_HouseholdId_UserId` ON `HouseholdMemberships` (`HouseholdId`, `UserId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_HouseholdMemberships_UserId` ON `HouseholdMemberships` (`UserId`)");
+            migrationBuilder.Sql("CREATE UNIQUE INDEX `IX_RecipeRatings_RecipeId_UserId` ON `RecipeRatings` (`RecipeId`, `UserId`)");
+            migrationBuilder.Sql("CREATE INDEX `IX_RecipeRatings_UserId` ON `RecipeRatings` (`UserId`)");
         }
 
         /// <inheritdoc />
