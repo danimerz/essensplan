@@ -93,11 +93,18 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 
 ## 🚀 Deployment & Infrastruktur
 
-- [x] Proxmox LXC Deployment-Scripts (`scripts/`): Erstinstallation, App-Setup, Update-Script.
+- [x] ~~Proxmox LXC Deployment-Scripts (`scripts/`): eigener Container, nginx, Cron-Update~~ —
+  entfernt, ersetzt durch das Deployment über den bestehenden Homelab-App-Manager
+  (`apps.familie-merz.ch`), der HTTPS via Cloudflare Tunnel, Health-Checks und Rollback
+  bereits für alle anderen Apps (`flomiapp`, `hallo`, `games`) löst.
+- [x] GitHub-Actions-Workflow (`.github/workflows/deploy.yml`): Build → ZIP → Deploy-API
+  des App-Managers, siehe README „Deployment“.
 - [x] DNS-Migration zu Cloudflare (`familie-merz.ch`) — E-Mail & Nabu Casa bleiben erhalten.
-- [ ] Cloudflare Tunnel einrichten für externen Zugriff (kein Port-Forwarding nötig).
-- [ ] HTTPS via Cloudflare Tunnel (automatisch, kein Zertifikat managen).
-- [ ] Automatisches Update per Cron-Job im LXC Container (optional, bereits im Setup-Script vorbereitet).
+- [ ] Migros-Sidecar (`migros-image-server/`) ebenfalls auf `apps.familie-merz.ch`
+  einrichten — läuft dort separat vom App-Manager-Deploy (eigener systemd-Dienst).
+- [ ] Health-Check-Pfad evtl. auf einen echten `/health`-Endpoint umstellen statt `/`
+  (aktuell ausreichend, da der App-Manager nur < 500 prüft und `/` auch unangemeldet
+  mit 302 antwortet).
 
 ## 🛠 Technik & Qualität
 

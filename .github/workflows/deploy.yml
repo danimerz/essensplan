@@ -1,0 +1,23 @@
+name: Deploy essensplan
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet publish src/Essensplan.Web/Essensplan.Web.csproj -c Release -o publish
+      - run: cd publish && zip -qr ../app.zip .
+      - name: Deploy auf apps.familie-merz.ch
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.APPMGR_TOKEN }}" \
+            -H "X-Deploy-Ref: ${GITHUB_SHA::7}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @app.zip \
+            https://apps.familie-merz.ch/api/deploy/essensplan

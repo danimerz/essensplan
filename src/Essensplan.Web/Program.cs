@@ -2,6 +2,7 @@ using Essensplan.Web.Components;
 using Essensplan.Web.Data;
 using Essensplan.Web.Models;
 using Essensplan.Web.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -73,6 +74,17 @@ builder.Services.AddHttpClient<MigrosImageService>(client =>
 });
 
 var app = builder.Build();
+
+// Behind a reverse proxy (e.g. Caddy on a different host), trust its X-Forwarded-* headers so
+// HTTPS redirection and request.Scheme are correct. The proxy's address isn't fixed at build
+// time, so known-network restrictions are cleared rather than hardcoding an internal IP here.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownIPNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 if (!app.Environment.IsDevelopment())
 {
