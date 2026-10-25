@@ -4,7 +4,7 @@
 // circuit, or any API calls — Blazor Server needs a live connection to the backend
 // for every interaction, so there is no meaningful "offline mode" to fake here.
 
-const CACHE_NAME = 'essensplan-shell-v1';
+const CACHE_NAME = 'essensplan-shell-v2';
 
 const SHELL_ASSETS = [
   '/app.css',
@@ -43,7 +43,21 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (!SHELL_ASSETS.includes(url.pathname)) return;
 
+  // Stale-while-revalidate: serve the cached copy immediately for speed, but always
+  // fetch a fresh one in the background and update the cache for next time. A pure
+  // cache-first strategy here previously meant a CSS fix never reached installed PWAs
+  // until something happened to change this very file's bytes (which is what makes
+  // the browser notice there's a new service worker to install in the first place).
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(event.request);
+      const network = fetch(event.request)
+        .then((response) => {
+          if (response.ok) cache.put(event.request, response.clone());
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
   );
 });
