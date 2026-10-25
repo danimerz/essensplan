@@ -61,7 +61,7 @@
 .fab {
   position: fixed;
   right: 1.25rem;
-  bottom: calc(var(--bottomnav-height) + 1.1rem);
+  bottom: calc(var(--bottomnav-height) + env(safe-area-inset-bottom, 0px) + 1.1rem);
   z-index: 45;
   width: 56px;
   height: 56px;
@@ -711,14 +711,90 @@ a.card:hover .media-veil { opacity: 1; }
   gap: 0.25rem;
 }
 
+/* ---- Week view, mobile: vertically stacked day cards -------------------
+   The desktop .week-grid relies on DOM order matching its row-by-row CSS
+   Grid auto-placement (all day headers, then all breakfast slots, then all
+   lunch slots, ...). That order can't also produce a readable per-day
+   column layout on a narrow screen, so mobile gets its own markup instead
+   of trying to reflow the same grid. */
+
+.week-days-mobile { display: none; }
+
+.week-day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.week-day-card.is-today { border-color: var(--primary); }
+
+.week-day-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--surface-alt);
+}
+.week-day-card-header .dow { font-weight: 800; font-size: 0.95rem; text-transform: capitalize; }
+.week-day-card-header .dom { font-size: 0.8rem; color: var(--text-muted); }
+.week-day-card.is-today .week-day-card-header { background: var(--primary-soft); }
+.week-day-card.is-today .week-day-card-header .dow,
+.week-day-card.is-today .week-day-card-header .dom { color: var(--primary-hover); }
+
+.week-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.week-slot-row:active { background: var(--surface-alt); }
+
+.week-slot-row-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+}
+
+.week-slot-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.week-slot-row-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.week-slot-row-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-slot-row-empty {
+  font-size: 0.85rem;
+  color: var(--text-faint);
+}
+
 @media (max-width: 960px) {
-  .week-grid {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(200px, 1fr);
-    grid-template-rows: auto repeat(3, auto);
+  .week-grid { display: none; }
+  .week-days-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
   }
-  .week-grid-corner { display: none; }
 }
 
 /* ==========================================================================
@@ -763,6 +839,7 @@ a.card:hover .media-veil { opacity: 1; }
 
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;

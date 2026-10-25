@@ -6,6 +6,9 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   min-height: 100vh;
+  /* dvh tracks the real visible viewport on mobile, so the shell doesn't jump as the
+     browser's address bar/toolbar collapses or reappears during scroll. */
+  min-height: 100dvh;
 }
 
 /* ---- Sidebar (desktop) ------------------------------------------------- */
@@ -14,6 +17,7 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-elevated);
@@ -150,16 +154,19 @@
   left: 0;
   right: 0;
   z-index: 40;
-  height: var(--bottomnav-height);
+  /* The nav row itself always stays --bottomnav-height tall; the home-indicator safe
+     area is added as pure bottom padding so icons never get squeezed into less space
+     on devices like the iPhone (padding adds to min-height, not taken out of it). */
+  min-height: var(--bottomnav-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bottom-nav-list {
   display: flex;
-  height: 100%;
+  height: var(--bottomnav-height);
 }
 
 .bottom-nav-item {
@@ -234,7 +241,7 @@
   .bottom-nav { display: block; }
 
   .app-main {
-    padding: 1.25rem 1rem calc(var(--bottomnav-height) + 1.5rem);
+    padding: 1.25rem 1rem calc(var(--bottomnav-height) + env(safe-area-inset-bottom, 0px) + 1.5rem);
   }
 
   .page-header {

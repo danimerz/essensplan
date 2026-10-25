@@ -18,7 +18,12 @@ public class CurrentUserService
     private string? _householdName;
     private HouseholdRole? _householdRole;
     private bool _isSuperAdmin;
-    private bool _loaded;
+
+    // Memoizes the in-flight load task itself (not just a "done" flag) so concurrent callers
+    // within the same circuit/request (e.g. MainLayout and the page both read this at once)
+    // all await the same load instead of one of them observing a "loaded" flag flipped before
+    // the data behind it has actually arrived.
+    private Task? _loadTask;
 
     public CurrentUserService(
         AuthenticationStateProvider authStateProvider,
@@ -28,11 +33,10 @@ public class CurrentUserService
         _dbFactory = dbFactory;
     }
 
-    private async Task EnsureLoadedAsync()
-    {
-        if (_loaded) return;
-        _loaded = true;
+    private Task EnsureLoadedAsync() => _loadTask ??= LoadAsync();
 
+    private async Task LoadAsync()
+    {
         var state = await _authStateProvider.GetAuthenticationStateAsync();
         var principal = state.User;
         if (principal.Identity?.IsAuthenticated != true) return;
