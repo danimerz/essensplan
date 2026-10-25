@@ -73,8 +73,11 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 
 ## 📱 Mobile & Offline
 
-- [ ] Progressive Web App (PWA): installierbar, Offline-Zugriff auf zuletzt
-  geladene Rezepte/Pläne, Home-Screen-Icon.
+- [x] Progressive Web App (PWA): installierbar mit Home-Screen-Icon, Vollbild
+  ohne Browser-Leiste (`manifest.json`, Apple-Meta-Tags, Icon-Set). Kein
+  echter Offline-Zugriff auf Rezepte/Pläne — Blazor Server braucht für jede
+  Interaktion eine aktive Verbindung, der Service Worker cached nur
+  statische Shell-Assets (CSS/Icons) für schnelleres Nachladen.
 - [ ] Push-Benachrichtigungen ("Was gibt's heute?", "Wochenplan ist noch leer").
 - [ ] Bessere Touch-Bedienung für den Wochenplan-Grid auf kleinen Screens
   (aktuell horizontal scrollbar, könnte durch Swipe-Tage ersetzt werden).
