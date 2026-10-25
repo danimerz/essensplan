@@ -100,7 +100,7 @@ sondern grob nach Themenbereich sortiert. `[x]` = umgesetzt.
 - [x] GitHub-Actions-Workflow (`.github/workflows/deploy.yml`): Build → ZIP → Deploy-API
   des App-Managers, siehe README „Deployment“.
 - [x] DNS-Migration zu Cloudflare (`familie-merz.ch`) — E-Mail & Nabu Casa bleiben erhalten.
-- [ ] Migros-Sidecar (`migros-image-server/`) ebenfalls auf `apps.familie-merz.ch`
+- [x] Migros-Sidecar (`migros-image-server/`) ebenfalls auf `apps.familie-merz.ch` (im Deploy-ZIP unter `sidecar/`, Dienst über den App-Manager)
   einrichten — läuft dort separat vom App-Manager-Deploy (eigener systemd-Dienst).
 - [ ] Health-Check-Pfad evtl. auf einen echten `/health`-Endpoint umstellen statt `/`
   (aktuell ausreichend, da der App-Manager nur < 500 prüft und `/` auch unangemeldet

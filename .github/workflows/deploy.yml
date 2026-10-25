@@ -11,7 +11,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - run: dotnet publish src/Essensplan.Web/Essensplan.Web.csproj -c Release -o publish
+      # Migros-Sidecar: der App-Manager startet publish/sidecar/ als eigenen Dienst (node ., Port über PORT/HOST)
+      - name: Sidecar ins Paket
+        run: |
+          cd migros-image-server
+          npm ci --omit=dev
+          mkdir -p ../publish/sidecar
+          cp -r package.json package-lock.json server.js node_modules ../publish/sidecar/
       - run: cd publish && zip -qr ../app.zip .
       - name: Deploy auf apps.familie-merz.ch
         run: |

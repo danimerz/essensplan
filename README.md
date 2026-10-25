@@ -89,9 +89,11 @@ src/Essensplan.Web/
 Die .NET-App wird über GitHub Actions (`.github/workflows/deploy.yml`) auf den
 hauseigenen App-Manager auf `apps.familie-merz.ch` deployt – gleiches Prinzip wie
 `flomiapp`, `hallo` und `games`: Build → ZIP → `POST /api/deploy/essensplan` mit
-Bearer-Token. Der Migros-Sidecar (`migros-image-server/`, Node.js) läuft separat auf
-demselben Server und wird eigenständig eingerichtet/aktualisiert, **nicht** über diesen
-Workflow – der App-Manager kennt nur einzelne .NET-DLLs, keine Begleitprozesse.
+Bearer-Token. Der Migros-Sidecar (`migros-image-server/`, Node.js) kommt im selben ZIP
+mit: Der Workflow führt `npm ci --omit=dev` aus und legt ihn nach `publish/sidecar/`.
+Der App-Manager erkennt den Ordner, startet ihn als eigenen Dienst
+(`blazor-sidecar@essensplan`, `node .`, nur `127.0.0.1`, Port = App-Port + 1000) und setzt
+`Sidecar__Port` für die App. Health-Check (`/health`) und Rollback gelten für beide.
 
 ### Einmaliges Setup im App-Manager (https://apps.familie-merz.ch)
 
@@ -124,33 +126,20 @@ Workflow – der App-Manager kennt nur einzelne .NET-DLLs, keine Begleitprozesse
    Log (`journalctl -u blazor@essensplan`), falls `Setup__AdminInitialPassword` nicht
    gesetzt wurde. Nach dem ersten Login unbedingt ändern.
 
-4. MySQL-Datenbank + eigener DB-User (nicht `root`) auf der DB-VM anlegen, z. B.:
+4. Die MySQL-Datenbank samt eigenem Benutzer legt der App-Manager beim Anlegen der App
+   (Datenbank `mysql`) selbst an und trägt `ConnectionStrings__DefaultConnection` in die
+   Umgebung ein (`TreatTinyAsBoolean` ist bei MySqlConnector ohnehin Standard).
 
-   ```sql
-   CREATE DATABASE essensplan CHARACTER SET utf8mb4;
-   CREATE USER 'essensplan'@'192.168.1.22' IDENTIFIED BY 'Sicheres!Passwort1';
-   GRANT ALL ON essensplan.* TO 'essensplan'@'192.168.1.22';
-   ```
+   (`APP_DLL`, `ASPNETCORE_URLS` und `Sidecar__Port` setzt der App-Manager selbst – nicht
+   manuell anfassen.)
 
-   und den Connection-String ebenfalls im Umgebungsvariablen-Editor eintragen:
-
-   ```
-   ConnectionStrings__DefaultConnection=Server=<DB_HOST>;Port=3306;Database=essensplan;User=essensplan;Password=...;TreatTinyAsBoolean=true
-   ```
-
-   (`APP_DLL` und `ASPNETCORE_URLS` setzt der App-Manager selbst – nicht manuell anfassen.)
-
-5. Migros-Sidecar separat auf dem Server einrichten (eigener systemd-Dienst o. ä.) und
-   `MigrosImageServer:Port` setzen, falls er nicht auf dem Standardport `3001` läuft:
-
-   ```
-   MigrosImageServer__Port=3001
-   ```
+5. Für den Migros-Sidecar ist nichts einzurichten (siehe oben). Lokal läuft er weiterhin
+   mit `npm start` auf Port `3001` (`MigrosImageServer:Port`, wenn `Sidecar:Port` fehlt).
 
 ### Deploy auslösen
 
 GitHub → Actions → „Deploy essensplan“ → **Run workflow**. Der Workflow baut mit dem
-.NET-10-SDK, packt `publish/` als ZIP und lädt es per Bearer-Token hoch. Bei
+.NET-10-SDK und Node 24, packt `publish/` (inkl. `sidecar/`) als ZIP und lädt es per Bearer-Token hoch. Bei
 erfolgreichem Health-Check wird die neue Version aktiv (3 Releases werden vorgehalten,
 bei fehlgeschlagenem Health-Check rollt der App-Manager automatisch zurück).
 

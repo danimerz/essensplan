@@ -2,6 +2,8 @@ import express from 'express';
 import { MigrosAPI } from 'migros-api-wrapper';
 
 const PORT = process.env.PORT ?? 3001;
+// Nur lokal erreichbar – die .NET-App ruft den Sidecar auf demselben Server auf
+const HOST = process.env.HOST ?? '127.0.0.1';
 const app = express();
 
 // Guest token cache (50 min)
@@ -116,7 +118,7 @@ app.get('/image', async (req, res) => {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => {
-  console.log(`Migros image server läuft auf http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Migros image server läuft auf http://${HOST}:${PORT}`);
   console.log('Endpoints: GET /image?q=Butter  |  GET /health');
 });

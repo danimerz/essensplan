@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "migros-api-wrapper": "latest"
+    "migros-api-wrapper": "1.1.37"
   }
 }

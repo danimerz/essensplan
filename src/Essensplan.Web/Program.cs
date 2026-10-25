@@ -66,10 +66,11 @@ builder.Services.AddHttpClient<RecipeImportService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
-var migrosPort = builder.Configuration["MigrosImageServer:Port"] ?? "3001";
+// Sidecar:Port setzt der App-Manager automatisch (Sidecar läuft dort als eigener Dienst auf 127.0.0.1)
+var migrosPort = builder.Configuration["Sidecar:Port"] ?? builder.Configuration["MigrosImageServer:Port"] ?? "3001";
 builder.Services.AddHttpClient<MigrosImageService>(client =>
 {
-    client.BaseAddress = new Uri($"http://localhost:{migrosPort}");
+    client.BaseAddress = new Uri($"http://127.0.0.1:{migrosPort}");
     client.Timeout = TimeSpan.FromSeconds(5);
 });
 
