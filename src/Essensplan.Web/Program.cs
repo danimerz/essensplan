@@ -60,6 +60,7 @@ builder.Services.AddScoped<ShoppingListService>();
 builder.Services.AddScoped<UserManagementService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<ShoppingListApiKeyService>();
+builder.Services.AddSingleton<MailService>();
 builder.Services.AddSingleton<WeekPlanChangeNotifier>();
 
 builder.Services.AddHttpClient<RecipeImportService>(client =>
@@ -116,6 +117,7 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
 }
 
 await SeedAsync(app.Services, app.Logger);
+await EmergencyPasswordResetAsync(app.Services, app.Configuration, app.Logger);
 
 app.Run();
 
@@ -180,6 +182,35 @@ async Task SeedAsync(IServiceProvider services, ILogger logger)
     logger.LogWarning("Initiales Passwort:      {Password}", initialPassword);
     logger.LogWarning("Bitte nach erstem Login das Passwort ändern!");
     logger.LogWarning("======================");
+}
+
+// Notfall-Reset ohne Mail: Setup__ResetPassword__Email + Setup__ResetPassword__Password in app.env setzen,
+// App neu starten, anmelden – danach beide Variablen wieder entfernen.
+static async Task EmergencyPasswordResetAsync(IServiceProvider services, IConfiguration config, ILogger logger)
+{
+    var email = config["Setup:ResetPassword:Email"];
+    var password = config["Setup:ResetPassword:Password"];
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
+
+    await using var scope = services.CreateAsyncScope();
+    var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+    var user = await users.FindByEmailAsync(email.Trim());
+    if (user is null)
+    {
+        logger.LogWarning("Notfall-Reset: kein Konto mit E-Mail {Email}.", email);
+        return;
+    }
+    var token = await users.GeneratePasswordResetTokenAsync(user);
+    var result = await users.ResetPasswordAsync(user, token, password);
+    if (!result.Succeeded)
+    {
+        logger.LogError("Notfall-Reset für {Email} fehlgeschlagen: {Errors}", email, string.Join(", ", result.Errors.Select(e => e.Description)));
+        return;
+    }
+    user.IsActive = true;
+    await users.UpdateAsync(user);
+    await users.SetLockoutEndDateAsync(user, null);
+    logger.LogWarning("=== NOTFALL-RESET: Passwort für {Email} gesetzt. Bitte Setup__ResetPassword__* aus app.env entfernen! ===", email);
 }
 
 static string GenerateInitialPassword()

@@ -13,6 +13,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+    <PackageReference Include="MailKit" Version="4.18.2" />
+    <!-- transitiv über Pomelo kommt 2.4.0 (Advisory GHSA-473q-m89c-ghf8) → neuere Version pinnen -->
+    <PackageReference Include="MySqlConnector" Version="2.6.2" />
   </ItemGroup>
 
 </Project>

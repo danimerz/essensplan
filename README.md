@@ -16,6 +16,11 @@ einem selbst geschriebenen, hell/dunkel-fähigen Design-System (kein Bootstrap).
 - **Wochenplan**: 7-Tage-Raster über Frühstück/Mittag/Abend. Einträge lassen sich manuell
   per Klick zuweisen oder per **„Automatisch planen“** befüllen – der Generator vermeidet
   dabei Wiederholungen der letzten ~2 Wochen, solange genug Auswahl vorhanden ist.
+- **Passwort vergessen** (`/passwort-vergessen`): Link per Mail (1 Tag gültig, einmal verwendbar), braucht
+  `Smtp__Host`, `Smtp__Port` (465 = TLS direkt), `Smtp__Username`, `Smtp__Password`, `Smtp__FromAddress`,
+  `Smtp__FromName`, `Smtp__EnableSsl`. Max. 5 Anfragen pro IP in 15 Minuten.
+- **Notfall-Reset ohne Mail**: `Setup__ResetPassword__Email` + `Setup__ResetPassword__Password` setzen, App neu
+  starten, anmelden – **danach beide Variablen wieder entfernen** (sonst wird das Passwort bei jedem Start zurückgesetzt).
 - **Einkaufsliste-API für die Vorrat-App**: `/api/einkaufsliste` (GET, POST `{name}`, `POST /{id}/toggle`,
   `POST /abhaken {name}`, `DELETE /{id}`, `POST /erledigte-entfernen`) mit `Authorization: Bearer ep_…`.
   Schlüssel pro Haushalt unter Administration → Benutzer → „Verbindung zur Vorrat-App“ (nur Hash gespeichert).
