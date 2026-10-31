@@ -20,10 +20,20 @@ public class AppDbContext : IdentityDbContext<AppUser>
     public DbSet<WeekPlanEntry> WeekPlanEntries => Set<WeekPlanEntry>();
     public DbSet<RecipeRating> RecipeRatings => Set<RecipeRating>();
     public DbSet<ShoppingListItem> ShoppingListItems => Set<ShoppingListItem>();
+    public DbSet<ShoppingListApiKey> ShoppingListApiKeys => Set<ShoppingListApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ShoppingListApiKey>(e =>
+        {
+            e.Property(k => k.Name).HasMaxLength(100);
+            e.Property(k => k.KeyHash).HasMaxLength(64).IsRequired();
+            e.Property(k => k.KeyPrefix).HasMaxLength(16);
+            e.HasIndex(k => k.KeyHash).IsUnique();
+            e.HasOne(k => k.Household).WithMany().HasForeignKey(k => k.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<HouseholdMembership>(entity =>
         {

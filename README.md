@@ -16,6 +16,9 @@ einem selbst geschriebenen, hell/dunkel-fähigen Design-System (kein Bootstrap).
 - **Wochenplan**: 7-Tage-Raster über Frühstück/Mittag/Abend. Einträge lassen sich manuell
   per Klick zuweisen oder per **„Automatisch planen“** befüllen – der Generator vermeidet
   dabei Wiederholungen der letzten ~2 Wochen, solange genug Auswahl vorhanden ist.
+- **Einkaufsliste-API für die Vorrat-App**: `/api/einkaufsliste` (GET, POST `{name}`, `POST /{id}/toggle`,
+  `POST /abhaken {name}`, `DELETE /{id}`, `POST /erledigte-entfernen`) mit `Authorization: Bearer ep_…`.
+  Schlüssel pro Haushalt unter Administration → Benutzer → „Verbindung zur Vorrat-App“ (nur Hash gespeichert).
 - **Dashboard**: Tagesübersicht, Fortschritt der aktuellen Woche, Schnellzugriffe.
 
 ## Architektur

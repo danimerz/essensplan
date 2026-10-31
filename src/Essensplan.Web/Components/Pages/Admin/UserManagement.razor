@@ -3,6 +3,8 @@
 @inject UserManagementService UserMgmt
 @inject CurrentUserService CurrentUser
 @inject NavigationManager Nav
+@inject ShoppingListApiKeyService ApiKeys
+@inject IJSRuntime JS
 
 <PageTitle>Benutzerverwaltung – Essensplan</PageTitle>
 
@@ -111,6 +113,43 @@ else
     </div>
 }
 
+@if (_isAdmin)
+{
+    <section class="card card-pad" style="margin-top:1.5rem;">
+        <h2 style="margin:0 0 0.35rem;">🔗 Verbindung zur Vorrat-App</h2>
+        <p class="text-sm muted" style="margin:0 0 1rem;">
+            Damit die Vorrat-App (vorrat.familie-merz.ch) diese Einkaufsliste anzeigen und ergänzen kann:
+            Schlüssel erzeugen und in der Vorrat-App unter <strong>Haushalt → Einkaufsliste verbinden</strong> einfügen.
+            Der Schlüssel wird nur einmal angezeigt.
+        </p>
+        @if (_newKey is not null)
+        {
+            <div class="alert alert-success" style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <code style="word-break:break-all; flex:1 1 260px;">@_newKey</code>
+                <button class="btn btn-ghost btn-sm" @onclick="CopyKey">@(_copied ? "✓ Kopiert" : "Kopieren")</button>
+            </div>
+        }
+        <div class="row" style="gap:0.5rem; flex-wrap:wrap;">
+            <LoadingButton CssClass="btn btn-primary btn-sm" OnClick="CreateKey">Schlüssel erzeugen</LoadingButton>
+        </div>
+        @if (_keys is { Count: > 0 })
+        {
+            <div class="stack" style="gap:0.5rem; margin-top:1rem;">
+                @foreach (var k in _keys)
+                {
+                    <div class="row-between" style="gap:0.5rem; flex-wrap:wrap;">
+                        <div>
+                            <strong>@k.Name</strong> <code class="text-sm">@(k.KeyPrefix)…</code>
+                            <div class="text-sm muted">erstellt @k.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")@(k.LastUsedAt is { } u ? $" · zuletzt benutzt {u.ToLocalTime():dd.MM.yyyy HH:mm}" : " · noch nie benutzt")</div>
+                        </div>
+                        <LoadingButton CssClass="btn btn-ghost btn-sm" OnClick="() => RevokeKey(k.Id)">Widerrufen</LoadingButton>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
 @code {
     private List<HouseholdMemberDto>? _members;
     private bool _isAdmin;
@@ -125,13 +164,39 @@ else
     private int _inviteRole = 0;
     private string? _inviteError;
 
+    private List<ShoppingListApiKey>? _keys;
+    private string? _newKey;
+    private bool _copied;
+
     protected override async Task OnInitializedAsync()
     {
         _isAdmin = await CurrentUser.IsAdminAsync();
         _householdId = await CurrentUser.GetHouseholdIdAsync() ?? 0;
 
         if (_isAdmin)
+        {
             await LoadMembers();
+            _keys = await ApiKeys.ListAsync(_householdId);
+        }
+    }
+
+    private async Task CreateKey()
+    {
+        _newKey = await ApiKeys.CreateAsync(_householdId, "Vorrat-App");
+        _copied = false;
+        _keys = await ApiKeys.ListAsync(_householdId);
+    }
+
+    private async Task RevokeKey(int id)
+    {
+        await ApiKeys.RevokeAsync(_householdId, id);
+        _newKey = null;
+        _keys = await ApiKeys.ListAsync(_householdId);
+    }
+
+    private async Task CopyKey()
+    {
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newKey); _copied = true; } catch { }
     }
 
     private async Task LoadMembers()

@@ -59,6 +59,7 @@ builder.Services.AddScoped<RecipeRatingService>();
 builder.Services.AddScoped<ShoppingListService>();
 builder.Services.AddScoped<UserManagementService>();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<ShoppingListApiKeyService>();
 builder.Services.AddSingleton<WeekPlanChangeNotifier>();
 
 builder.Services.AddHttpClient<RecipeImportService>(client =>
@@ -100,6 +101,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapRazorPages();
+ShoppingListApi.Map(app);
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -447,6 +447,48 @@ namespace Essensplan.Web.Data.Migrations
                     b.ToTable("RecipeRatings");
                 });
 
+            modelBuilder.Entity("Essensplan.Web.Models.ShoppingListApiKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("KeyPrefix")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique();
+
+                    b.ToTable("ShoppingListApiKeys");
+                });
+
             modelBuilder.Entity("Essensplan.Web.Models.ShoppingListItem", b =>
                 {
                     b.Property<int>("Id")
@@ -458,14 +500,26 @@ namespace Essensplan.Web.Data.Migrations
                     b.Property<int>("HouseholdId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("longtext");
+
                     b.Property<bool>("IsDone")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsManual")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsPromotion")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Price")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ProductCategory")
                         .HasColumnType("longtext");
 
                     b.Property<decimal?>("Quantity")
@@ -781,6 +835,17 @@ namespace Essensplan.Web.Data.Migrations
                     b.Navigation("Recipe");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Essensplan.Web.Models.ShoppingListApiKey", b =>
+                {
+                    b.HasOne("Essensplan.Web.Models.Household", "Household")
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Household");
                 });
 
             modelBuilder.Entity("Essensplan.Web.Models.ShoppingListItem", b =>
